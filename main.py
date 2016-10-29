@@ -74,7 +74,7 @@ parser.add_argument('--rebuild',
                     default=False,
                     help='Rebuild mode(default: False)',)
 
-parser.add_argument('--verbose',
+parser.add_argument('-V', '--verbose',
                     action='store_true',
                     default=False,
                     help='Verbose mode(default: False)',)
@@ -201,9 +201,9 @@ if __name__ == "__main__":
         if args.update_race_data == True or args.rebuild == True:
             scraper = scraper.SkylarkScraper(args = args, logger = logger)
 
-            self.logger.notime("make race URL list.")
+            logger.info("make race URL list.")
             scraper.makeRaceUrlList(period = args.period_of_months)
             scraper.exportRaceUrlList()
 
-            self.logger.notime("download race data.")
-            scraper.download()
+            logger.info("download race data.")
+            scraper.downloadAndScraping(dbi = dbi)
