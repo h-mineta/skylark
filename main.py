@@ -108,7 +108,7 @@ parser.add_argument('--http-proxy',
                     action='store',
                     nargs='?',
                     const=None,
-                    default='http://localhost:5432',
+                    default=None,
                     type=str,
                     choices=None,
                     help='HTTP Proxy(default: None)',
@@ -169,18 +169,17 @@ args = parser.parse_args()
 # create logger
 logger = logging.getLogger(__name__)
 formatter = logging.Formatter('[%(asctime)s][%(funcName)s:%(lineno)d][%(levelname)s] %(message)s')
+logger.setLevel(logging.DEBUG)
 
+console = logging.StreamHandler()
 if args.debug == True:
-    logger.setLevel(logging.DEBUG)
+    console.setLevel(logging.DEBUG)
 elif args.verbose == True:
-    logger.setLevel(logging.INFO)
+    console.setLevel(logging.INFO)
 else:
-    logger.setLevel(logging.WARNING)
-
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-ch.setFormatter(formatter)
-logger.addHandler(ch)
+    console.setLevel(logging.WARNING)
+console.setFormatter(formatter)
+logger.addHandler(console)
 
 if __name__ == "__main__":
 
