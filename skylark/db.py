@@ -24,6 +24,9 @@ class SkylarkDb:
             "charset" : "utf8mb4"
         }
 
+        self.connection = MySQLdb.connect(**self.db_args)
+        self.connection.autocommit(False)
+
     def __enter__(self):
         return self
 
@@ -32,11 +35,16 @@ class SkylarkDb:
             self.logger.error(exception_type)
             self.logger.error(exception_value)
 
-    # Initialize db & table
+        if self.connection:
+            try:
+                self.connection.close()
+            except MySQLdb.Error as ex:
+                self.logger.warning(ex)
+
+    # initialize
     def initialize(self):
         try:
-            with MySQLdb.connect(**self.db_args) as cursor:
-
+            with self.connection.cursor() as cursor:
                 sql_create_tbl = '''
                     CREATE TABLE IF NOT EXISTS `race_info_tbl` (
                       `id` bigint(1) UNSIGNED NOT NULL,
@@ -45,8 +53,9 @@ class SkylarkDb:
                       `weather` varchar(8) NOT NULL,
                       `post_time` time(0) NOT NULL,
                       `race_number` bigint(1) UNSIGNED NOT NULL,
-                      `track_surface` varchar(16) NOT NULL,
-                      `track_condition` varchar(16) NOT NULL,
+                      `run_direction` varchar(8) DEFAULT NULL,
+                      `track_surface` varchar(8) NOT NULL,
+                      `track_condition` varchar(8) NOT NULL,
                       `track_condition_score` int(1) DEFAULT NULL,
                       `date` date NOT NULL,
                       `place_detail` varchar(16) NOT NULL,
@@ -102,21 +111,25 @@ class SkylarkDb:
                 '''
                 cursor.execute(sql_create_tbl)
 
-        except MySQLdb.Error as ex:
-            self.logger.critical(ex)
-            return None
+                self.connection.commit()
 
-        return self
+        except MySQLdb.Error as ex:
+            self.connection.rollback()
+            self.logger.critical(ex)
+            return False
+
+        return True
 
     def insertRaceInfo(self, dataset):
         sql_insert = '''
-            REPLACE INTO race_info_tbl(
+            INSERT IGNORE INTO race_info_tbl(
                 id,
                 race_name,
                 distance,
                 weather,
                 post_time,
                 race_number,
+                run_direction,
                 track_surface,
                 track_condition,
                 track_condition_score,
@@ -126,24 +139,23 @@ class SkylarkDb:
             )
             VALUES(
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s
+                %s, %s, %s
             );
         '''
 
         try:
-            with MySQLdb.connect(**self.db_args) as cursor:
-                cursor.connection.autocommit(False)
-
+            with self.connection.cursor() as cursor:
                 cursor.execute(sql_insert, dataset)
 
-                cursor.connection.commit()
+                self.connection.commit()
 
         except MySQLdb.Error as ex:
+            self.connection.rollback()
             self.logger.error(ex)
 
     def insertRaceResult(self, dataset_list):
         sql_insert = '''
-            REPLACE INTO race_result_tbl(
+            INSERT IGNORE INTO race_result_tbl(
                 race_id,
                 order_of_finish,
                 bracket_number,
@@ -176,13 +188,12 @@ class SkylarkDb:
         '''
 
         try:
-            with MySQLdb.connect(**self.db_args) as cursor:
-                cursor.connection.autocommit(False)
-
+            with self.connection.cursor() as cursor:
                 for dataset in dataset_list:
                     cursor.execute(sql_insert, dataset)
 
-                cursor.connection.commit()
+                self.connection.commit()
 
         except MySQLdb.Error as ex:
+            self.connection.rollback()
             self.logger.error(ex)

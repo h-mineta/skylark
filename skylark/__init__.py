@@ -1,2 +1,2 @@
-from . import scraper
 from . import db
+from . import scraper

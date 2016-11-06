@@ -5,6 +5,7 @@
 # Copyright (c) 2016 h-mineta <h-mineta@0nyx.net>
 # This software is released under the MIT License.
 #
+# pip3 install pyquery aiohttp MySQLdb
 
 from skylark import *
 import argparse
@@ -195,14 +196,19 @@ if __name__ == "__main__":
         os.mkdir(args.temp)
 
     with db.SkylarkDb(args = args, logger = logger) as dbi:
-        dbi.initialize()
+        result = dbi.initialize()
 
-        if args.update_race_data == True or args.rebuild == True:
-            scraper = scraper.SkylarkScraper(args = args, logger = logger)
+        if result == False:
+            logger.critical("MySQL connection failed")
+            exit(1)
 
-            logger.info("make race URL list.")
-            scraper.makeRaceUrlList(period = args.period_of_months)
-            scraper.exportRaceUrlList()
+    scraper = scraper.SkylarkScraper(args = args, logger = logger)
+    if args.update_race_data == True or args.rebuild == True:
+        logger.info("make race URL list")
+        scraper.makeRaceUrlList(period = args.period_of_months)
+        scraper.exportRaceUrlList()
+    else:
+        scraper.importRaceUrlList()
 
-            logger.info("download race data.")
-            scraper.downloadAndScraping(dbi = dbi)
+    logger.info("download race data")
+    scraper.download()
