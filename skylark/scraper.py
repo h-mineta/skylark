@@ -29,6 +29,11 @@ class SkylarkScraper:
         self.opener        = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
         self.race_url_list = []
 
+        self.filter_race_id = [
+            200808020398,
+            200808020399
+        ]
+
         # Proxy有り
         if self.args.http_proxy:
             proxy_handler = urllib.request.ProxyHandler({"http": self.args.http_proxy})
@@ -140,7 +145,13 @@ class SkylarkScraper:
             with await sem:
                 race_id = int(url.rsplit("/", 2)[1])
 
-                self.logger.debug("[%5d] race_id: %d, url: %s, start", index, race_id, url)
+                try:
+                    self.filter_race_id.index(race_id)
+                    self.logger.warning("[%5d] race_id: %d, url: %s, reject[filter_race_id]", index, race_id, url)
+                    return
+                except ValueError as ex:
+                    self.logger.debug("[%5d] race_id: %d, url: %s, start", index, race_id, url)
+
                 html = None
                 download_flag = False
 
@@ -189,8 +200,12 @@ class SkylarkScraper:
 
     def scrapingHtml(self, race_id, html):
         with db.SkylarkDb(args = self.args, logger = self.logger) as dbi:
-            dataset_info   = ()
-            dataset_result = []
+            dataset_info    = ()
+            dataset_horse   = []
+            dataset_trainer = []
+            dataset_owner   = []
+            dataset_result  = []
+            dataset_payoff  = []
 
             dom = pq(html)
             race_head = dom("html body div#page div#main div.race_head")
@@ -231,7 +246,7 @@ class SkylarkScraper:
                 elif re.search(r'^.*直線', data_track_surface_org):
                     data_run_direction = "直線"
 
-                if re.search(r'^.*外$', data_track_surface_org):
+                if data_run_direction is not None and re.search(r'^.*外$', data_track_surface_org):
                     data_run_direction = data_run_direction + " 外"
 
                 data_distance = int(matchese.group(2))
@@ -370,6 +385,13 @@ class SkylarkScraper:
                 if remark == "":
                     remark = None
 
+                # 厩舎
+                stable = '不明'
+                matchese = None
+                matchese = re.match(r'\[(.)\]', columns.eq(18).text())
+                if matchese:
+                    stable = matchese.group(1)
+
                 #調教師
                 try:
                     trainer_id = int(columns.eq(18).find("a").eq(0).attr("href").rsplit("/", 2)[1])
@@ -389,6 +411,21 @@ class SkylarkScraper:
                     earning_money = float(columns.eq(20).text().replace(",", ""))
                 except ValueError as ex:
                     earning_money = 0
+
+                dataset_horse.append((
+                    horse_id,
+                    horse_name
+                ))
+
+                dataset_trainer.append((
+                    trainer_id,
+                    trainer_name
+                ))
+
+                dataset_owner.append((
+                    owner_id,
+                    owner_name
+                ))
 
                 dataset_result.append((
                     race_id,
@@ -411,7 +448,7 @@ class SkylarkScraper:
                     horse_weight,
                     horse_weight_diff,
                     remark,
-                    None,
+                    stable,
                     trainer_id,
                     #trainer_name, # db not insert
                     owner_id,
@@ -419,4 +456,32 @@ class SkylarkScraper:
                     earning_money
                 ))
 
+            race_result = None
+            dbi.insertHorse(dataset_horse)
+            dbi.insertTrainer(dataset_trainer)
+            dbi.insertOwner(dataset_owner)
             dbi.insertRaceResult(dataset_result)
+
+            pay_block = dom("html body div#page div#contents dl.pay_block tr")
+            for pay_result in pay_block:
+                columns = pq(pay_result).find("th")
+                ticket_type = dbi.ticket_type_list.index(columns.eq(0).text())
+
+                columns = pq(pay_result).find("td")
+                horse_numbers_list = columns.eq(0).html().split("<br />")
+                payoff_list = columns.eq(1).html().split("<br />")
+                popularity_list = columns.eq(2).html().split("<br />")
+
+                idx = 0
+                while idx < len(horse_numbers_list):
+                    dataset_payoff.append((
+                        race_id,
+                        ticket_type,
+                        horse_numbers_list[idx].replace(" ", "").replace("→", "->"),
+                        int(payoff_list[idx].replace(",", "")),
+                        int(popularity_list[idx])
+                    ))
+                    idx = idx + 1
+
+            pay_block = None
+            dbi.insertPayoff(dataset_payoff)

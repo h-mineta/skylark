@@ -196,19 +196,23 @@ if __name__ == "__main__":
         os.mkdir(args.temp)
 
     with db.SkylarkDb(args = args, logger = logger) as dbi:
+        if args.rebuild == True:
+            dbi.destroyTables()
+
         result = dbi.initialize()
 
         if result == False:
             logger.critical("MySQL connection failed")
             exit(1)
 
-    scraper = scraper.SkylarkScraper(args = args, logger = logger)
-    if args.update_race_data == True or args.rebuild == True:
-        logger.info("make race URL list")
-        scraper.makeRaceUrlList(period = args.period_of_months)
-        scraper.exportRaceUrlList()
-    else:
-        scraper.importRaceUrlList()
+        if args.update_race_data == True or args.rebuild == True:
+            scraper = scraper.SkylarkScraper(args = args, logger = logger)
+            logger.info("make race URL list")
+            scraper.makeRaceUrlList(period = args.period_of_months)
+            scraper.exportRaceUrlList()
 
-    logger.info("download race data")
-    scraper.download()
+            logger.info("download race data")
+            scraper.download()
+
+        for value in dbi.getRaceInfoList():
+            feature.SkylarkFeature(args = args, logger = logger, race_id = value[0], horse_number = value[1])
