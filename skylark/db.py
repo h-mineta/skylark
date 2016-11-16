@@ -90,8 +90,17 @@ class SkylarkDb:
                 cursor.execute(sql_create_tbl)
 
                 sql_create_tbl = '''
+                    CREATE TABLE IF NOT EXISTS `jockey_tbl` (
+                    `jockey_id` bigint(5) UNSIGNED ZEROFILL NOT NULL,
+                    `jockey_name` varchar(255) NOT NULL,
+                    PRIMARY KEY (`jockey_id`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='騎手テーブル' ROW_FORMAT=DYNAMIC;
+                '''
+                cursor.execute(sql_create_tbl)
+
+                sql_create_tbl = '''
                     CREATE TABLE IF NOT EXISTS `trainer_tbl` (
-                    `trainer_id` bigint(1) UNSIGNED NOT NULL,
+                    `trainer_id` bigint(5) UNSIGNED ZEROFILL NOT NULL,
                     `trainer_name` varchar(255) NOT NULL,
                     PRIMARY KEY (`trainer_id`)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='トレーナーテーブル' ROW_FORMAT=DYNAMIC;
@@ -100,7 +109,7 @@ class SkylarkDb:
 
                 sql_create_tbl = '''
                     CREATE TABLE IF NOT EXISTS `owner_tbl` (
-                    `owner_id` bigint(1) UNSIGNED NOT NULL,
+                    `owner_id` bigint(6) UNSIGNED ZEROFILL NOT NULL,
                     `owner_name` varchar(255) NOT NULL,
                     PRIMARY KEY (`owner_id`)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='オーナーテーブル' ROW_FORMAT=DYNAMIC;
@@ -117,7 +126,7 @@ class SkylarkDb:
                     `sex` varchar(8) NOT NULL,
                     `age` int(1) UNSIGNED NOT NULL,
                     `basis_weight` double NOT NULL,
-                    `jockey_id` bigint(5) ZEROFILL NOT NULL,
+                    `jockey_id` bigint(5) UNSIGNED ZEROFILL NOT NULL,
                     `finishing_time` time(2) DEFAULT NULL,
                     `margin` varchar(16) NOT NULL,
                     `speed_figure` int(1) UNSIGNED DEFAULT NULL,
@@ -133,10 +142,14 @@ class SkylarkDb:
                     `owner_id` bigint(6) UNSIGNED ZEROFILL NOT NULL,
                     `earning_money` double UNSIGNED DEFAULT NULL,
                     PRIMARY KEY (`race_id`,`horse_number`),
-                    FOREIGN KEY (race_id) REFERENCES race_info_tbl (id),
-                    FOREIGN KEY (horse_id) REFERENCES horse_tbl (horse_id),
-                    FOREIGN KEY (trainer_id) REFERENCES trainer_tbl (trainer_id),
-                    FOREIGN KEY (owner_id) REFERENCES owner_tbl (owner_id)
+                    KEY `race_horse` (`race_id`,`horse_id`),
+                    KEY `race_jockey` (`race_id`,`jockey_id`),
+                    KEY `race_trainer` (`race_id`,`trainer_id`),
+                    KEY `race_owner` (`race_id`,`owner_id`),
+                    FOREIGN KEY (`race_id`) REFERENCES race_info_tbl (`id`),
+                    FOREIGN KEY (`horse_id`) REFERENCES horse_tbl (`horse_id`),
+                    FOREIGN KEY (`trainer_id`) REFERENCES trainer_tbl (`trainer_id`),
+                    FOREIGN KEY (`owner_id`) REFERENCES owner_tbl (`owner_id`)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='レース結果テーブル' ROW_FORMAT=DYNAMIC;
                 '''
                 cursor.execute(sql_create_tbl)
@@ -148,7 +161,7 @@ class SkylarkDb:
                     `horse_numbers` varchar(16) NOT NULL,
                     `payoff` int(1) UNSIGNED NOT NULL,
                     `popularity` int(1) UNSIGNED NOT NULL,
-                    PRIMARY KEY (`race_id`,`ticket_type`,`horse_number`) USING BTREE,
+                    PRIMARY KEY (`race_id`,`ticket_type`,`horse_numbers`),
                     FOREIGN KEY (race_id) REFERENCES race_info_tbl (id)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='支払いテーブル' ROW_FORMAT=DYNAMIC;
                 '''
@@ -209,9 +222,9 @@ class SkylarkDb:
                     `female_only` double DEFAULT NULL,
 
                     PRIMARY KEY (`race_id`,`horse_number`),
-                    FOREIGN KEY (race_id) REFERENCES race_info_tbl (id),
-                    FOREIGN KEY (horse_id) REFERENCES horse_tbl (horse_id),
-                    FOREIGN KEY (trainer_id) REFERENCES trainer_tbl (trainer_id)
+                    FOREIGN KEY (`race_id`) REFERENCES race_info_tbl (`id`),
+                    FOREIGN KEY (`horse_id`) REFERENCES horse_tbl (`horse_id`),
+                    FOREIGN KEY (`trainer_id`) REFERENCES trainer_tbl (`trainer_id`)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='予測テーブル' ROW_FORMAT=DYNAMIC;
                 '''
                 cursor.execute(sql_create_tbl)
@@ -251,6 +264,28 @@ class SkylarkDb:
             INSERT IGNORE INTO horse_tbl(
                 horse_id,
                 horse_name
+            )
+            VALUES(
+                %s, %s
+            );
+        '''
+
+        try:
+            with self.connection.cursor() as cursor:
+                for dataset in dataset_list:
+                    cursor.execute(sql_insert, dataset)
+
+                self.connection.commit()
+
+        except MySQLdb.Error as ex:
+            self.connection.rollback()
+            self.logger.error(ex)
+
+    def insertJockey(self, dataset_list):
+        sql_insert = '''
+            INSERT IGNORE INTO jockey_tbl(
+                jockey_id,
+                jockey_name
             )
             VALUES(
                 %s, %s
@@ -444,7 +479,7 @@ class SkylarkDb:
         '''
 
         try:
-            with self.connection.cursor() as cursor:
+            with self.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
                 cursor.execute(sql_select, [race_id])
                 return cursor.fetchone()
 

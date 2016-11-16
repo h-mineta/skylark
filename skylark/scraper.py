@@ -202,6 +202,7 @@ class SkylarkScraper:
         with db.SkylarkDb(args = self.args, logger = self.logger) as dbi:
             dataset_info    = ()
             dataset_horse   = []
+            dataset_jockey  = []
             dataset_trainer = []
             dataset_owner   = []
             dataset_result  = []
@@ -412,9 +413,14 @@ class SkylarkScraper:
                 except ValueError as ex:
                     earning_money = 0
 
-                dataset_horse.append((
+                dataset_horse.append([
                     horse_id,
                     horse_name
+                ])
+
+                dataset_jockey.append((
+                    jockey_id,
+                    jockey_name
                 ))
 
                 dataset_trainer.append((
@@ -458,6 +464,7 @@ class SkylarkScraper:
 
             race_result = None
             dbi.insertHorse(dataset_horse)
+            dbi.insertJockey(dataset_jockey)
             dbi.insertTrainer(dataset_trainer)
             dbi.insertOwner(dataset_owner)
             dbi.insertRaceResult(dataset_result)
