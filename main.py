@@ -65,7 +65,12 @@ parser.add_argument('--period-of-months',
                     help='period of months(default: 12)',
                     metavar=None)
 
-parser.add_argument('-U', '--update-race-data',
+parser.add_argument('-U', '--update-race-list',
+                    action='store_true',
+                    default=False,
+                    help='Update race list(default: False)',)
+
+parser.add_argument('--update-race-data',
                     action='store_true',
                     default=False,
                     help='Update race data(default: False)',)
@@ -165,6 +170,16 @@ parser.add_argument('--mysql-dbname',
                     help='MySQL database name(default: skylark)',
                     metavar=None)
 
+parser.add_argument('race_id',
+                    action='store',
+                    nargs='*',
+                    const=None,
+                    default=None,
+                    type=str,
+                    choices=None,
+                    help='Race ID',
+                    metavar=None)
+
 args = parser.parse_args()
 
 # create logger
@@ -205,14 +220,27 @@ if __name__ == "__main__":
             logger.critical("MySQL connection failed")
             exit(1)
 
-        if args.update_race_data == True or args.rebuild == True:
-            scraper = scraper.SkylarkScraper(args = args, logger = logger)
-            logger.info("make race URL list")
-            scraper.makeRaceUrlList(period = args.period_of_months)
-            scraper.exportRaceUrlList()
+        if args.update_race_list == True or args.update_race_data == True or args.rebuild == True or args.race_id is not None:
+            instance = scraper.SkylarkScraper(args = args, logger = logger)
+            if args.update_race_list == True:
+                logger.info("make race URL list")
+                instance.makeRaceUrlList(period = args.period_of_months)
+                instance.exportRaceUrlList()
+            elif args.race_id is not None:
+                instance.setRaceUrlList(args.race_id)
+            else:
+                instance.importRaceUrlList()
 
             logger.info("download race data")
-            scraper.download()
+            instance.download()
+            instance = None
 
+        count_finish = 0
+        count_total = dbi.getRaceInfoCount()
+        feature = feature.SkylarkFeature(args = args, logger = logger)
         for value in dbi.getRaceInfoList():
-            feature.SkylarkFeature(args = args, logger = logger, race_id = value[0], horse_number = value[1])
+            count_finish += 1
+            if (count_finish % 100 == 0):
+                logger.info("処理中 ... {0:7.3f} % 完了".format(100.0 * count_finish / count_total))
+
+            feature.initialize(race_id = value[0], horse_number = value[1])

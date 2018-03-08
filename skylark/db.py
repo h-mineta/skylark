@@ -24,17 +24,6 @@ class SkylarkDb:
             "charset" : "utf8mb4"
         }
 
-        self.ticket_type_list = [
-            "単勝",
-            "複勝",
-            "枠連",
-            "馬連",
-            "ワイド",
-            "馬単",
-            "三連複",
-            "三連単"
-        ]
-
         self.cursor_iter = None
 
         self.connection = MySQLdb.connect(**self.db_args)
@@ -72,6 +61,7 @@ class SkylarkDb:
                     `track_condition_score` int(1) UNSIGNED DEFAULT NULL,
                     `date` date NOT NULL,
                     `place_detail` varchar(16) NOT NULL,
+                    `race_grade` int(1) UNSIGNED DEFAULT NULL,
                     `race_class` varchar(64) NOT NULL,
                     PRIMARY KEY (`id`),
                     KEY `race_name` (`race_name`),
@@ -184,8 +174,8 @@ class SkylarkDb:
                     `track_condition` varchar(8) NOT NULL,
                     `track_condition_score` double UNSIGNED DEFAULT NULL,
 
-                    `sppedrating_last4_avg` double DEFAULT NULL,
-                    `winner_last4_avg` double DEFAULT NULL,
+                    `sppedrating_avg` double DEFAULT NULL,
+                    `winner_avg` double DEFAULT NULL,
                     `horse_weight` int(1) DEFAULT NULL,
 
                     `disavesr` double DEFAULT NULL,
@@ -202,7 +192,7 @@ class SkylarkDb:
                     `twinper` double DEFAULT NULL,
                     `winRun` double DEFAULT NULL,
                     `j_eps` double DEFAULT NULL,
-                    `j_avg_win4` double DEFAULT NULL,
+                    `j_avg_win` double DEFAULT NULL,
                     `pre_oof` double DEFAULT NULL,
                     `pre2_oof` double DEFAULT NULL,
                     `month` double DEFAULT NULL,
@@ -362,11 +352,12 @@ class SkylarkDb:
                 track_condition_score,
                 date,
                 place_detail,
+                race_grade,
                 race_class
             )
             VALUES(
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s
+                %s, %s, %s, %s
             );
         '''
 
@@ -450,6 +441,22 @@ class SkylarkDb:
             self.connection.rollback()
             self.logger.error(ex)
 
+    def getRaceInfoCount(self):
+        sql_select = '''
+            SELECT COUNT(*)
+            FROM race_result_tbl AS rr;
+        '''
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql_select)
+
+                result = cursor.fetchone()
+                return result[0];
+
+        except Error as ex:
+            self.logger.error(ex)
+
     def getRaceInfoList(self):
         sql_select = '''
             SELECT rr.race_id, rr.horse_number
@@ -474,7 +481,7 @@ class SkylarkDb:
         sql_select = '''
             SELECT ri.*
             FROM race_info_tbl AS ri
-            WHERE id = %s
+            WHERE ri.id = %s
             LIMIT 1;
         '''
 
@@ -486,19 +493,312 @@ class SkylarkDb:
         except MySQLdb.Error as ex:
             self.logger.error(ex)
 
-    def getOrderOfFinish(self, race_id, horse_number):
+    def getHorseId(self, race_id, horse_number):
+        assert race_id > 0 and horse_number > 0
+
         sql_select = '''
-            SELECT rr.order_of_finish
+            SELECT rr.horse_id
             FROM race_result_tbl AS rr
-            WHERE race_id = %s
-            AND horse_number = %s
+            WHERE rr.race_id = %s
+            AND rr.horse_number = %s
             LIMIT 1;
         '''
 
         try:
             with self.connection.cursor() as cursor:
                 cursor.execute(sql_select, [race_id, horse_number])
-                return cursor.fetchone()
+                result = cursor.fetchone()
+                if result is None:
+                    return None
+                return result[0]
+
+        except MySQLdb.Error as ex:
+            self.logger.error(ex)
+
+    def getJockeyId(self, race_id, horse_number):
+        assert race_id > 0 and horse_number > 0
+
+        sql_select = '''
+            SELECT rr.jockey_id
+            FROM race_result_tbl AS rr
+            WHERE rr.race_id = %s
+            AND rr.horse_number = %s
+            LIMIT 1;
+        '''
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql_select, [race_id, horse_number])
+                result = cursor.fetchone()
+                if result is None:
+                    return None
+                return result[0]
+
+        except MySQLdb.Error as ex:
+            self.logger.error(ex)
+
+    def getTrainerId(self, race_id, horse_number):
+        assert race_id > 0 and horse_number > 0
+
+        sql_select = '''
+            SELECT rr.trainer_id
+            FROM race_result_tbl AS rr
+            WHERE rr.race_id = %s
+            AND rr.horse_number = %s
+            LIMIT 1;
+        '''
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql_select, [race_id, horse_number])
+                result = cursor.fetchone()
+                if result is None:
+                    return None
+                return result[0]
+
+        except MySQLdb.Error as ex:
+            self.logger.error(ex)
+
+    def getOwnerId(self, race_id, horse_number):
+        assert race_id > 0 and horse_number > 0
+
+        sql_select = '''
+            SELECT rr.owner_id
+            FROM race_result_tbl AS rr
+            WHERE rr.race_id = %s
+            AND rr.horse_number = %s
+            LIMIT 1;
+        '''
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql_select, [race_id, horse_number])
+                result = cursor.fetchone()
+                if result is None:
+                    return None
+                return result[0]
+
+        except MySQLdb.Error as ex:
+            self.logger.error(ex)
+
+    def getOrderOfFinish(self, race_id, horse_number):
+        assert race_id > 0 and horse_number > 0
+
+        sql_select = '''
+            SELECT rr.order_of_finish
+            FROM race_result_tbl AS rr
+            WHERE rr.race_id = %s
+            AND rr.horse_number = %s
+            LIMIT 1;
+        '''
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql_select, [race_id, horse_number])
+                result = cursor.fetchone()
+                if result is None:
+                    return None
+                return result[0]
+
+        except MySQLdb.Error as ex:
+            self.logger.error(ex)
+
+    def getSpeedFigureLast(self, horse_id, date):
+        assert horse_id > 0
+
+        sql_select = '''
+            SELECT rr.speed_figure
+            FROM race_result_tbl AS rr
+            JOIN race_info_tbl AS ri
+            ON rr.race_id = ri.id
+            WHERE rr.horse_id = %s
+            AND ri.date < %s
+            AND rr.speed_figure IS NOT NULL
+            ORDER BY ri.date DESC
+            LIMIT 1;
+        '''
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql_select, [horse_id, date])
+                result = cursor.fetchone()
+                if result is None:
+                    return None
+                return result[0]
+
+        except MySQLdb.Error as ex:
+            self.logger.error(ex)
+
+    def getSpeedFigureAvg(self, horse_id, date, limit):
+        assert horse_id > 0 and limit > 0
+
+        sql_select = '''
+            SELECT AVG(sub.speed_figure)
+            FROM (
+                SELECT rr.speed_figure
+                FROM race_result_tbl AS rr
+                JOIN race_info_tbl AS ri
+                ON rr.race_id = ri.id
+                WHERE rr.horse_id = %s
+                AND ri.date < %s
+                AND rr.speed_figure IS NOT NULL
+                ORDER BY ri.date DESC
+                LIMIT {0:d}
+            ) AS sub;
+        '''.format(limit)
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql_select, [horse_id, date])
+                result = cursor.fetchone()
+                if result is None:
+                    return None
+                return result[0]
+
+        except MySQLdb.Error as ex:
+            self.logger.error(ex)
+
+    def getWinnerAvg(self, horse_id, date, limit):
+        assert horse_id > 0 and limit > 0
+
+        sql_select = '''
+            SELECT AVG(sub.order_of_finish)
+            FROM (
+                SELECT rr.order_of_finish
+                FROM race_result_tbl AS rr
+                JOIN race_info_tbl AS ri
+                ON rr.race_id = ri.id
+                WHERE rr.horse_id = %s
+                AND rr.order_of_finish BETWEEN 1 and 3
+                AND ri.date < %s
+                AND rr.speed_figure IS NOT NULL
+                ORDER BY ri.date DESC
+                LIMIT {0:d}
+            ) AS sub;
+        '''.format(limit)
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql_select, [horse_id, date])
+                result = cursor.fetchone()
+                if result is None:
+                    return None
+                return result[0]
+
+        except MySQLdb.Error as ex:
+            self.logger.error(ex)
+
+    def getWinnerAvg_Free(self, horse_id, date, limit):
+        assert horse_id > 0 and limit > 0
+
+        sql_select = '''
+            SELECT AVG(sub.order_of_finish)
+            FROM (
+                SELECT rr.order_of_finish
+                FROM race_result_tbl AS rr
+                JOIN race_info_tbl AS ri
+                ON rr.race_id = ri.id
+                WHERE rr.horse_id = %s
+                AND rr.order_of_finish BETWEEN 1 and 3
+                AND ri.date < %s
+                ORDER BY ri.date DESC
+                LIMIT {0:d}
+            ) AS sub;
+        '''.format(limit)
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql_select, [horse_id, date])
+                result = cursor.fetchone()
+                if result is None:
+                    return None
+                return result[0]
+
+        except MySQLdb.Error as ex:
+            self.logger.error(ex)
+
+    def getDisavesr(self, horse_id, date, distance, limit):
+        assert horse_id > 0 and distance > 0 and limit > 0
+
+        sql_select = '''
+            SELECT AVG(sub.speed_figure)
+            FROM (
+                SELECT rr.speed_figure
+                FROM race_result_tbl AS rr
+                JOIN race_info_tbl AS ri
+                ON rr.race_id = ri.id
+                WHERE rr.horse_id = %s
+                AND ri.date < %s
+                AND ri.distance = %s
+                AND rr.speed_figure IS NOT NULL
+                ORDER BY ri.date DESC
+                LIMIT {0:d}
+            ) AS sub;
+        '''.format(limit)
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql_select, [horse_id, date, distance])
+                result = cursor.fetchone()
+                if result is None:
+                    return None
+                return result[0]
+
+        except MySQLdb.Error as ex:
+            self.logger.error(ex)
+
+    def getDistanceAvg(self, horse_id, date, limit):
+        assert horse_id > 0 and limit > 0
+
+        sql_select = '''
+            SELECT AVG(sub.distance)
+            FROM (
+                SELECT ri.distance
+                FROM race_result_tbl AS rr
+                JOIN race_info_tbl AS ri
+                ON rr.race_id = ri.id
+                WHERE rr.horse_id = %s
+                AND ri.date < %s
+                ORDER BY ri.date DESC
+                LIMIT {0:d}
+            ) AS sub;
+        '''.format(limit)
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql_select, [horse_id, date])
+                result = cursor.fetchone()
+                if result is None:
+                    return None
+                return result[0]
+
+        except MySQLdb.Error as ex:
+            self.logger.error(ex)
+
+    def getEarningsPerShare(self, horse_id, date, limit):
+        assert horse_id > 0 and limit > 0
+
+        sql_select = '''
+            SELECT AVG(sub.earning_money)
+            FROM (
+                SELECT rr.earning_money
+                FROM race_result_tbl AS rr
+                JOIN race_info_tbl AS ri
+                ON rr.race_id = ri.id
+                WHERE rr.horse_id = %s
+                AND ri.date < %s
+                ORDER BY ri.date DESC
+                LIMIT {0:d}
+            ) AS sub;
+        '''.format(limit)
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql_select, [horse_id, date])
+                result = cursor.fetchone()
+                if result is None:
+                    return None
+                return result[0]
 
         except MySQLdb.Error as ex:
             self.logger.error(ex)

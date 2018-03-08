@@ -6,6 +6,7 @@
 #
 
 from . import db
+from . import util
 from pyquery import PyQuery as pq
 import asyncio
 import gzip
@@ -39,6 +40,9 @@ class SkylarkScraper:
             proxy_handler = urllib.request.ProxyHandler({"http": self.args.http_proxy})
             self.opener.add_handler(proxy_handler)
 
+    def __enter__(self):
+        return self
+
     # レース結果URLリストを読み込み
     def importRaceUrlList(self):
         if os.path.isfile(self.args.temp + "/" + self.args.race_list_file) == False:
@@ -53,6 +57,10 @@ class SkylarkScraper:
 
         with open(self.args.temp + "/" + self.args.race_list_file, "w") as file:
             [file.write(path+"\n") for path in self.race_url_list]
+
+    def setRaceUrlList(self, race_ids):
+        [self.race_url_list.append("/race/"+race_id+"/") for race_id in race_ids]
+        print(self.race_url_list)
 
     # レース結果URLを作成
     def makeRaceUrlList(self, period):
@@ -223,6 +231,8 @@ class SkylarkScraper:
             data_track_condition_score = None
             data_run_direction = None
             data_track_surface_org = None
+            data_place_detail = None
+            data_class = None
 
             data_race_number = int(race_head("dl.racedata dt").text().split(" ", 1)[0])
 
@@ -230,7 +240,7 @@ class SkylarkScraper:
 
             # track_surface, distance, weather, track_condition, post_time
             matchese = None
-            matchese = re.match(r'^([^\d]+)(\d+)m\s*/\s*天候 : (\w+)\s*/\s*(.+)\s+/\s+発走 : (\d{1,2}:\d{1,2})', race_head("dl.racedata dd p span").text(), re.U)
+            matchese = re.match(r'^([^\d ]+).*?(\d{4})m\s*/\s*天候 : (\w+)\s*/\s*(.+)\s+/\s+発走 : (\d{1,2}:\d{1,2})', race_head("dl.racedata dd p span").text(), re.U)
             if matchese:
                 data_track_surface_org = matchese.group(1)
                 if re.search(r'^芝', data_track_surface_org):
@@ -286,6 +296,7 @@ class SkylarkScraper:
                 data_track_condition_score,
                 data_date,
                 data_place_detail,
+                util.SkylarkUtil.convertToClass2Int(data_class),
                 data_class
             )
 
@@ -472,7 +483,7 @@ class SkylarkScraper:
             pay_block = dom("html body div#page div#contents dl.pay_block tr")
             for pay_result in pay_block:
                 columns = pq(pay_result).find("th")
-                ticket_type = dbi.ticket_type_list.index(columns.eq(0).text())
+                ticket_type = util.SkylarkUtil.convertToTicketType2Int(columns.eq(0).text())
 
                 columns = pq(pay_result).find("td")
                 horse_numbers_list = columns.eq(0).html().split("<br />")
