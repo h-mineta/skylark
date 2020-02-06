@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 
 #
-# Copyright (c) 2016 h-mineta <h-mineta@0nyx.net>
+# Copyright (c) 2016-2020 h-mineta <h-mineta@0nyx.net>
 # This software is released under the MIT License.
 #
-# pip3 install pyquery aiohttp MySQLdb
+# pip3 install pyquery aiohttp mysqlclient
 
 from skylark import *
 import argparse
