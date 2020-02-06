@@ -138,6 +138,7 @@ class SkylarkDb:
                     KEY `race_owner` (`race_id`,`owner_id`),
                     FOREIGN KEY (`race_id`) REFERENCES race_info_tbl (`id`),
                     FOREIGN KEY (`horse_id`) REFERENCES horse_tbl (`horse_id`),
+                    FOREIGN KEY (`jockey_id`) REFERENCES jockey_tbl (`jockey_id`),
                     FOREIGN KEY (`trainer_id`) REFERENCES trainer_tbl (`trainer_id`),
                     FOREIGN KEY (`owner_id`) REFERENCES owner_tbl (`owner_id`)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='レース結果テーブル' ROW_FORMAT=DYNAMIC;
@@ -214,7 +215,8 @@ class SkylarkDb:
                     PRIMARY KEY (`race_id`,`horse_number`),
                     FOREIGN KEY (`race_id`) REFERENCES race_info_tbl (`id`),
                     FOREIGN KEY (`horse_id`) REFERENCES horse_tbl (`horse_id`),
-                    FOREIGN KEY (`trainer_id`) REFERENCES trainer_tbl (`trainer_id`)
+                    FOREIGN KEY (`trainer_id`) REFERENCES trainer_tbl (`trainer_id`),
+                    FOREIGN KEY (`jockey_id`) REFERENCES jockey_tbl (`jockey_id`)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='予測テーブル' ROW_FORMAT=DYNAMIC;
                 '''
                 cursor.execute(sql_create_tbl)
@@ -454,7 +456,7 @@ class SkylarkDb:
                 result = cursor.fetchone()
                 return result[0];
 
-        except Error as ex:
+        except MySQLdb.Error as ex:
             self.logger.error(ex)
 
     def getRaceInfoList(self):
@@ -471,7 +473,7 @@ class SkylarkDb:
                 for value in iter(cursor):
                     yield value
 
-        except Error as ex:
+        except MySQLdb.Error as ex:
             self.logger.error(ex)
             raise StopIteration
 
