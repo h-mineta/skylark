@@ -134,10 +134,10 @@ parser.add_argument('--mysql-port',
                     action='store',
                     nargs='?',
                     const=None,
-                    default=5432,
+                    default=3306,
                     type=int,
                     choices=None,
-                    help='MySQL port(default: 5432)',
+                    help='MySQL port(default: 3306)',
                     metavar=None)
 
 parser.add_argument('--mysql-username',
