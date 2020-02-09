@@ -221,6 +221,11 @@ class SkylarkDb:
                 '''
                 cursor.execute(sql_create_tbl)
 
+                sql_truncate_tbl = '''
+                    TRUNCATE TABLE `feature_tbl`;
+                '''
+                cursor.execute(sql_truncate_tbl)
+
                 self.connection.commit()
 
         except MySQLdb.Error as ex:
