@@ -212,7 +212,7 @@ if __name__ == "__main__":
 
     with db.SkylarkDb(args = args, logger = logger) as dbi:
         if args.rebuild == True:
-            dbi.destroyTables()
+            dbi.dropTables()
 
         result = dbi.initialize()
 

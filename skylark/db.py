@@ -230,7 +230,7 @@ class SkylarkDb:
 
         return True
 
-    def destroyTables(self):
+    def dropTables(self):
         try:
             with self.connection.cursor() as cursor:
                 sql_drop_tbl = '''
