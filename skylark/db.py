@@ -174,11 +174,9 @@ class SkylarkDb:
                     `track_surface` varchar(8) NOT NULL,
                     `track_condition` varchar(8) NOT NULL,
                     `track_condition_score` double UNSIGNED DEFAULT NULL,
-
                     `sppedrating_avg` double DEFAULT NULL,
                     `winner_avg` double DEFAULT NULL,
                     `horse_weight` int(1) DEFAULT NULL,
-
                     `disavesr` double DEFAULT NULL,
                     `dis_roc` double DEFAULT NULL,
                     `distance` double DEFAULT NULL,
@@ -206,12 +204,10 @@ class SkylarkDb:
                     `place_code` text,
                     `head_count` double DEFAULT NULL,
                     `preHead_count` double DEFAULT NULL,
-
                     `surface_changed` double DEFAULT NULL,
                     `grade_changed` double DEFAULT NULL,
                     `pre_margin` double DEFAULT NULL,
                     `female_only` double DEFAULT NULL,
-
                     PRIMARY KEY (`race_id`,`horse_number`),
                     FOREIGN KEY (`race_id`) REFERENCES race_info_tbl (`id`),
                     FOREIGN KEY (`horse_id`) REFERENCES horse_tbl (`horse_id`),
