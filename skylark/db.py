@@ -189,7 +189,7 @@ class SkylarkDb:
                     `owinper` double DEFAULT NULL,
                     `pre_sra` double DEFAULT NULL,
                     `twinper` double DEFAULT NULL,
-                    `winRun` double DEFAULT NULL,
+                    `win_run` double DEFAULT NULL,
                     `j_eps` double DEFAULT NULL,
                     `j_avg_win` double DEFAULT NULL,
                     `pre_oof` double DEFAULT NULL,
@@ -203,7 +203,7 @@ class SkylarkDb:
                     `course` text,
                     `place_code` text,
                     `head_count` double DEFAULT NULL,
-                    `preHead_count` double DEFAULT NULL,
+                    `pre_head_count` double DEFAULT NULL,
                     `surface_changed` double DEFAULT NULL,
                     `grade_changed` double DEFAULT NULL,
                     `pre_margin` double DEFAULT NULL,
@@ -430,6 +430,78 @@ class SkylarkDb:
             )
             VALUES(
                 %s, %s, %s, %s, %s
+            );
+        '''
+
+        try:
+            with self.connection.cursor() as cursor:
+                for dataset in dataset_list:
+                    cursor.execute(sql_insert, dataset)
+
+                self.connection.commit()
+
+        except MySQLdb.Error as ex:
+            self.connection.rollback()
+            self.logger.error(ex)
+
+    def insertFeature(self, dataset_list):
+        sql_insert = '''
+            INSERT IGNORE INTO feature_tbl(
+                race_id,
+                horse_number,
+                grade,
+                order_of_finish,
+                horse_id,
+                jockey_id,
+                trainer_id,
+                sex,
+                age,
+                basis_weight,
+                weather,
+                track_surface,
+                track_condition,
+                track_condition_score,
+                sppedrating_avg,
+                winner_avg,
+                horse_weight,
+                disavesr,
+                dis_roc,
+                distance,
+                dsl,
+                enter_times,
+                eps,
+                hweight,
+                jwinper,
+                odds,
+                owinper,
+                pre_sra,
+                twinper,
+                win_run,
+                j_eps,
+                j_avg_win,
+                pre_oof,
+                pre2_oof,
+                month,
+                riding_strong_jockey,
+                running_style,
+                pre_late_start,
+                pre_last_phase,
+                late_start_per,
+                course,
+                place_code,
+                head_count,
+                pre_head_count,
+                surface_changed,
+                grade_changed,
+                pre_margin,
+                female_only
+            )
+            VALUES(
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s
             );
         '''
 
