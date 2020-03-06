@@ -80,6 +80,11 @@ parser.add_argument('--rebuild',
                     default=False,
                     help='Rebuild mode(default: False)',)
 
+parser.add_argument('--scraping-only',
+                    action='store_true',
+                    default=False,
+                    help='scraping only mode(default: False)',)
+
 parser.add_argument('-V', '--verbose',
                     action='store_true',
                     default=False,
@@ -231,16 +236,21 @@ if __name__ == "__main__":
             else:
                 instance.importRaceUrlList()
 
-            logger.info("download race data")
+            logger.info("Start download race data")
             instance.download()
+            logger.info("End download race data")
             instance = None
 
-        count_finish = 0
-        count_total = dbi.getRaceInfoCount()
-        feature = feature.SkylarkFeature(args = args, logger = logger)
-        for value in dbi.getRaceInfoList():
-            count_finish += 1
-            if (count_finish % 100 == 0):
-                logger.info("処理中 ... {0:7.3f} % 完了".format(100.0 * count_finish / count_total))
+        if args.scraping_only == True:
+            logger.info("* Scraping only mode")
+        else:
+            count_finish = 0
+            count_total = dbi.getRaceInfoCount()
+            feature = feature.SkylarkFeature(args = args, logger = logger)
+            for value in dbi.getRaceInfoList():
+                feature.initialize(race_id = value[0], horse_number = value[1])
 
-            feature.initialize(race_id = value[0], horse_number = value[1])
+                count_finish += 1
+                if (count_finish % 100 == 0 or count_finish == count_total):
+                    logger.info("処理中 ... {0:7.3f} % 完了".format(100.0 * count_finish / count_total))
+

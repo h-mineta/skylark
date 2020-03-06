@@ -24,7 +24,7 @@ class SkylarkScraper:
         self.logger        = logger
 
         self.html_charset  = "euc-jp"
-        self.url_db        = "http://db.netkeiba.com"
+        self.url_db        = "https://db.netkeiba.com"
         self.url_login     = "https://account.netkeiba.com"
 
         self.opener        = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
@@ -37,7 +37,10 @@ class SkylarkScraper:
 
         # Proxy有り
         if self.args.http_proxy:
-            proxy_handler = urllib.request.ProxyHandler({"http": self.args.http_proxy})
+            proxy_handler = urllib.request.ProxyHandler({
+                "http": self.args.http_proxy,
+                "https": self.args.http_proxy
+            })
             self.opener.add_handler(proxy_handler)
 
     def __enter__(self):
@@ -70,9 +73,10 @@ class SkylarkScraper:
 
         while period > 0:
             try:
-                html = self.opener.open(url).read().decode(self.html_charset)
+                with self.opener.open(url, None, self.args.http_timeout) as response:
+                    html = response.read().decode(self.html_charset)
 
-            except Exception as e:
+            except Exception as ex:
                 self.logger.error(ex)
                 return
 
@@ -85,7 +89,8 @@ class SkylarkScraper:
                     self.logger.info("race_list path: %s", path)
 
                     try:
-                        html = self.opener.open(self.url_db + path).read().decode(self.html_charset)
+                        with self.opener.open(self.url_db + path) as response:
+                            html = response.read().decode(self.html_charset)
 
                     except Exception as ex:
                         self.logger.warning(ex)
@@ -120,7 +125,8 @@ class SkylarkScraper:
             }
             data = urllib.parse.urlencode(post).encode(self.html_charset)
 
-            html = self.opener.open(self.url_login, data, self.args.http_timeout).read().decode(self.html_charset)
+            with self.opener.open(url, data, self.args.http_timeout) as response:
+                html = response.read().decode(self.html_charset)
             dom = pq(html)
 
             for doc in dom("span.error").items():
@@ -138,7 +144,6 @@ class SkylarkScraper:
             session = self.login()
             if session == None:
                 return False
-
             futures = self.downloadSubProcess(session, self.args.download_concurrency)
             if futures != None:
                 loop.run_until_complete(futures)
@@ -165,7 +170,8 @@ class SkylarkScraper:
 
                 if os.path.isfile(filepath) == False:
                     try:
-                        html = session.open(url, None, self.args.http_timeout).read().decode(self.html_charset)
+                        with session.open(url, None, self.args.http_timeout) as response:
+                            html = response.read().decode(self.html_charset)
                         download_flag = True
                     except Exception as ex:
                         self.logger.warning(ex)
