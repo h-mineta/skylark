@@ -213,7 +213,7 @@ class SkylarkScraper:
                     continue
 
                 url = self.url_db + url_path
-                filepath = os.path.join(self.args.temp, "race." + matchese.group(1) + ".html.zstd")
+                filepath = os.path.join(self.args.temp, "race." + matchese.group(1) + ".html.zst")
 
                 tasks.append(limited_download(idx, url, filepath))
 
