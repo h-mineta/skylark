@@ -223,12 +223,12 @@ class SkylarkScraper:
     def scraping_html(self, race_id, html):
         db_crud: SkylarkCrud = SkylarkCrud(self.db_url, logger = self.logger)
         try:
-            dataset_horse   = []
-            dataset_jockey  = []
-            dataset_trainer = []
-            dataset_owner   = []
-            dataset_result  = []
-            dataset_payoff  = []
+            dataset_horse :list   = []
+            dataset_jockey :list  = []
+            dataset_trainer :list = []
+            dataset_owner :list   = []
+            dataset_result :list  = []
+            dataset_payoff :list  = []
 
             dom = pq(html)
             race_head = dom("html body div#page div#main div.race_head")
@@ -295,7 +295,7 @@ class SkylarkScraper:
 
             race_head = None
 
-            dataset_info = [{
+            dataset_info: dict = {
                 "id":race_id,
                 "race_name":data_race_name,
                 "distance":data_distance,
@@ -310,9 +310,9 @@ class SkylarkScraper:
                 "place_detail":data_place_detail,
                 "race_grade":SkylarkUtil.convertToClass2Int(data_class),
                 "race_class":data_class
-            }]
+            }
 
-            db_crud.insert_race_infos(dataset_info)
+            db_crud.insert_race_info(dataset_info)
 
             race_result = dom("html body div#page div#contents_liquid table tr")
             for result_row in race_result[1:]:
