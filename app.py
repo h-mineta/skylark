@@ -2,17 +2,16 @@
 # -*- coding: utf-8 -*-
 
 #
-# Copyright (c) 2016-2020 h-mineta <h-mineta@0nyx.net>
+# Copyright (c) 2024 MINETA "m10i" Hiroki <h-mineta@0nyx.net>
 # This software is released under the MIT License.
 #
-# pip3 install pyquery aiohttp mysqlclient
 
 import argparse
 import logging
 import os
 
 from dotenv import load_dotenv
-from skylark import crud, scraper
+from skylark import crud, scraper,feature
 
 load_dotenv()
 
@@ -120,12 +119,6 @@ sqlalchemy_db_url: str = "{protocol:s}://{username:s}:{password:s}@{hostname:s}:
     format(**db_config)
 
 if __name__ == "__main__":
-    # rebuild時はtempデータを全削除
-    if args.rebuild == True:
-        if os.path.isdir(args.temp):
-            import shutil
-            shutil.rmtree(args.temp)
-
     args.temp = os.path.normcase(args.temp)
     # tempディレクトリ作成
     if os.path.isdir(args.temp) == False:
@@ -138,7 +131,7 @@ if __name__ == "__main__":
 
         db_crud.create_tables()
 
-        if args.update_race_list == True or args.update_race_data == True or args.rebuild == True or args.race_id is not None:
+        if args.update_race_list == True or args.update_race_data == True or args.rebuild == True:
             instance = scraper.SkylarkScraper(sqlalchemy_db_url, args = args, logger = logger)
             if args.update_race_list == True:
                 logger.info("make race URL list")
@@ -146,8 +139,8 @@ if __name__ == "__main__":
                 instance.export_race_url_list()
             elif args.race_id is not None:
                 instance.set_race_url_list(args.race_id)
-
-            instance.import_race_url_list()
+            else:
+                instance.import_race_url_list()
 
             logger.info("Start download race data")
             instance.download()
@@ -157,15 +150,16 @@ if __name__ == "__main__":
         if args.scraping_only == True:
             logger.info("* Scraping only mode")
         else:
-            count_finish = 0
-            count_total = db_crud.get_race_info_count()
-            #feature = feature.SkylarkFeature(args = args, logger = logger)
-            #for value in dbi.getRaceInfoList():
-            #    feature.initialize(race_id = value[0], horse_number = value[1])
-            #
-            #    count_finish += 1
-            #    if (count_finish % 100 == 0 or count_finish == count_total):
-            #        logger.info("処理中 ... {0:7.3f} % 完了".format(100.0 * count_finish / count_total))
+            count = 0
+            race_result_list = db_crud.get_race_result_list()
+            count_total = len(race_result_list)
+            feature = feature.SkylarkFeature(args = args, logger = logger)
+            for race_result in race_result_list:
+                feature.initialize(db_crud, race_id = race_result.race_id, horse_number = race_result.horse_number)
+
+                count += 1
+                if (count % 100 == 0 or count == count_total):
+                    logger.info("処理中 ... {0:7.3f} % 完了".format(100.0 * count / count_total))
 
     except Exception as ex:
-        logger.error(f"{ex}")
+        logger.error(ex,exc_info=True)
