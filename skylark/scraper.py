@@ -1,80 +1,76 @@
 # -*- coding: utf-8 -*-
 
 #
-# Copyright (c) 2016 h-mineta <h-mineta@0nyx.net>
+# Copyright (c) 2024 MINETA "m10i" Hiroki <h-mineta@0nyx.net>
 # This software is released under the MIT License.
 #
 
-from . import db
-from . import util
-from pyquery import PyQuery as pq
+from argparse import Namespace
 import asyncio
-import gzip
-import http.cookiejar
-import logging
+from logging import Logger
 import os
 import re
-import sys
 import time
-import urllib.request, urllib.parse, urllib.error
+import zstandard as zstd
+
+import httpx
+from pyquery import PyQuery as pq
+
+from skylark.crud import SkylarkCrud
+from skylark.util import SkylarkUtil
 
 class SkylarkScraper:
-    def __init__(self, args, logger):
-        self.args          = args
-        self.logger        = logger
+    def __init__(self, db_url: str, args: Namespace, logger: Logger):
+        self.db_url = db_url
+        self.args = args
+        self.logger = logger
 
-        self.html_charset  = "euc-jp"
-        self.url_db        = "https://db.netkeiba.com"
-        self.url_login     = "https://account.netkeiba.com"
+        self.url_db : str = "https://db.netkeiba.com"
+        self.url_login :str  = "https://account.netkeiba.com"
 
-        self.opener        = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        self.cookies = httpx.Cookies()
         self.race_url_list = []
 
-        self.filter_race_id = [
+        self.ignore_race_id: list = [
             200808020398,
             200808020399
         ]
-
-        # Proxy有り
-        if self.args.http_proxy:
-            proxy_handler = urllib.request.ProxyHandler({
-                "http": self.args.http_proxy,
-                "https": self.args.http_proxy
-            })
-            self.opener.add_handler(proxy_handler)
 
     def __enter__(self):
         return self
 
     # レース結果URLリストを読み込み
-    def importRaceUrlList(self):
-        if os.path.isfile(self.args.temp + "/" + self.args.race_list_file) == False:
+    def import_race_url_list(self):
+        filepath = os.path.join(self.args.temp, self.args.race_list_file)
+        if os.path.isfile(filepath) == False:
+            self.logger.error("file not found: %s", filepath)
             return
 
-        with open(self.args.temp + "/" + self.args.race_list_file, "r") as file:
+        with open(filepath, "r") as file:
             self.race_url_list = sorted([val.strip() for val in file.readlines()])
 
     # レース結果URLリストを保存
-    def exportRaceUrlList(self):
+    def export_race_url_list(self):
         self.race_url_list = sorted(self.race_url_list)
+        filepath = os.path.join(self.args.temp, self.args.race_list_file)
 
-        with open(self.args.temp + "/" + self.args.race_list_file, "w") as file:
+        with open(filepath, "w") as file:
             [file.write(path+"\n") for path in self.race_url_list]
 
-    def setRaceUrlList(self, race_ids):
-        [self.race_url_list.append("/race/"+race_id+"/") for race_id in race_ids]
-        print(self.race_url_list)
+    def set_race_url_list(self, race_ids):
+        [self.race_url_list.append(f"/race/{race_id}/") for race_id in race_ids]
+        self.logger.debug(self.race_url_list)
 
     # レース結果URLを作成
-    def makeRaceUrlList(self, period):
+    def make_race_url_list(self, period):
         url = self.url_db + "/?pid=race_top"
         pattern_race = re.compile(r"^/race/[0-9]{12}/$")
         pattern_race_list = re.compile(r"^/race/list/[0-9]{8}/$")
 
         while period > 0:
             try:
-                with self.opener.open(url, None, self.args.http_timeout) as response:
-                    html = response.read().decode(self.html_charset)
+                response = httpx.get(url, timeout=os.environ.get("HTTP_TIMEOUT", 5), cookies=self.cookies)
+                html = response.text
 
             except Exception as ex:
                 self.logger.error(ex)
@@ -89,8 +85,8 @@ class SkylarkScraper:
                     self.logger.info("race_list path: %s", path)
 
                     try:
-                        with self.opener.open(self.url_db + path) as response:
-                            html = response.read().decode(self.html_charset)
+                        response = httpx.get(self.url_db + path, timeout=os.environ.get("HTTP_TIMEOUT", 5), cookies=self.cookies)
+                        html = response.text
 
                     except Exception as ex:
                         self.logger.warning(ex)
@@ -108,113 +104,125 @@ class SkylarkScraper:
             # 先月分のURLを作成
             path = dom("div#contents div.race_calendar li a").eq(1).attr("href")
             url = self.url_db + path
-
             period -= 1
 
-            # sleep 200ms
-            time.sleep(0.2)
+            # sleep 100ms
+            time.sleep(0.1)
 
     # netkeibaにログイン
-    def login(self):
-        if self.args.username and self.args.password:
+    def login(self, client: httpx.Client) -> bool:
+        login_id = os.getenv("NETKEIABA_LOGINID","")
+        password = os.getenv("NETKEIABA_PASSWORD","")
+
+        if login_id != "" and password != "":
             post = {
                 'pid'        : "login",
                 'action'     : "auth",
-                'login_id'   : self.args.username,
-                'pswd'       : self.args.password
+                'login_id'   : login_id,
+                'pswd'       : password
             }
-            data = urllib.parse.urlencode(post).encode(self.html_charset)
 
-            with self.opener.open(url, data, self.args.http_timeout) as response:
-                html = response.read().decode(self.html_charset)
+            print(login_id, password)
+            response = client.post(self.url_login, data=post, timeout=os.environ.get("HTTP_TIMEOUT", 5), cookies=self.cookies)
+            html = response.text
             dom = pq(html)
 
             for doc in dom("span.error").items():
                 # ログイン失敗と思われる
                 self.logger.error(doc.text())
-                return None
+                return False
 
-        return self.opener
+            # ログイン成功
+            return True
+
+        return None
 
     # ダウンロード実行
     def download(self):
-        if len(self.race_url_list) > 0:
-            loop = asyncio.get_event_loop()
+        if len(self.race_url_list) == 0:
+            return
 
-            session = self.login()
-            if session == None:
-                return False
-            futures = self.downloadSubProcess(session, self.args.download_concurrency)
-            if futures != None:
-                loop.run_until_complete(futures)
+        with httpx.Client(http2=True) as client:
+            result = self.login(client)
+            self.logger.info("login: %s", result)
 
-        return True
+        asyncio.run(self.download_concurrently(max_concurrent_requests=os.environ.get("MAX_CONCURRENT_REQUESTS", 4)))
 
-    # race HTMLのダウンロード
-    async def downloadSubProcess(self, session, limit):
-        sem = asyncio.Semaphore(limit)
+    async def download_concurrently(self, max_concurrent_requests=4):
+        pattern = re.compile(r"^/race/([0-9]+)/$")
 
-        async def worker(session, index, url, filepath):
-            with await sem:
-                race_id = int(url.rsplit("/", 2)[1])
+        async with httpx.AsyncClient(http2=True) as client:
+            semaphore = asyncio.Semaphore(max_concurrent_requests)  # 並行数を制御
+            tasks = []
 
-                try:
-                    self.filter_race_id.index(race_id)
-                    self.logger.warning("[%5d] race_id: %d, url: %s, reject[filter_race_id]", index, race_id, url)
-                    return
-                except ValueError as ex:
-                    self.logger.debug("[%5d] race_id: %d, url: %s, start", index, race_id, url)
+            async def limited_download(idx: int, url: str, filepath: str):
+                async with semaphore:
+                    race_id = int(url.rsplit("/", 2)[1])
 
-                html = None
-                download_flag = False
-
-                if os.path.isfile(filepath) == False:
                     try:
-                        with session.open(url, None, self.args.http_timeout) as response:
-                            html = response.read().decode(self.html_charset)
-                        download_flag = True
-                    except Exception as ex:
-                        self.logger.warning(ex)
+                        self.ignore_race_id.index(race_id)
+                        self.logger.warning("[%5d] race_id: %d, url: %s, reject[filter_race_id]", idx, race_id, url)
                         return
+                    except ValueError as ex:
+                        self.logger.debug("[%5d] race_id: %d, url: %s, start", idx, race_id, url)
 
-                    with gzip.open(filepath, 'wt', encoding=self.html_charset) as file:
-                        file.write(html)
+                    html = None
+                    download_flag = False
 
-                    self.logger.info("[%5d] race_id: %d, url: %s, download finish", index, race_id, url)
+                    if os.path.isfile(filepath) == False:
+                        try:
+                            response = await client.get(url, timeout=os.environ.get("HTTP_TIMEOUT", 5))
+                            response.raise_for_status()
 
-                else:
-                    self.logger.info("[%5d] race_id: %d, url: %s, downloaded", index, race_id, url)
+                            try:
+                                # EUC-JPエンコーディングでデコードし、UTF-8に変換
+                                html = response.content.decode("euc-jp")
+                            except UnicodeDecodeError:
+                                # 既にUTF-8または他のエンコーディングの場合
+                                html = response.text
 
-                    with gzip.open(filepath, 'rt', encoding=self.html_charset) as file:
-                        html = file.read()
+                            download_flag = True
+                        except Exception as ex:
+                            self.logger.warning(ex)
+                            return
 
-                if html == None:
-                    self.logger.warning("[%5d] race_id: %d, url: %s, no data", index, race_id, url)
-                else:
-                    self.scrapingHtml(race_id, html)
+                        with open(filepath, 'wb') as fp:
+                            fp.write(zstd.compress(html.encode("utf-8"), 3))
 
-                if download_flag == True:
-                    # sleep 1sec
-                    await asyncio.sleep(1.0)
+                        self.logger.info("[%5d] race_id: %d, url: %s, download finish", idx, race_id, url)
 
-                self.logger.debug("[%5d] url: %s, done", index, url)
+                    else:
+                        self.logger.info("[%5d] race_id: %d, url: %s, downloaded", idx, race_id, url)
 
-        futures = []
-        for index, path in enumerate(self.race_url_list):
-            matchese = re.match(r"^/race/([0-9]+)/$", path)
-            url = self.url_db + path
-            filepath = self.args.temp + "/race." + matchese.group(1) + ".html.gz"
+                        with open(filepath, 'rb') as fp:
+                            html = zstd.decompress(fp.read()).decode("utf-8")
 
-            futures.append(worker(session, index, url, filepath))
+                    if html == None:
+                        self.logger.warning("[%5d] race_id: %d, url: %s, no data", idx, race_id, url)
+                    else:
+                        self.scraping_html(race_id, html)
 
-        if len(futures) > 0:
-            return await asyncio.wait(futures)
-        else:
-            return None
+                    if download_flag == True:
+                        await asyncio.sleep(0.1)
 
-    def scrapingHtml(self, race_id, html):
-        with db.SkylarkDb(args = self.args, logger = self.logger) as dbi:
-            dataset_info    = ()
+                    self.logger.debug("[%5d] url: %s, done", idx, url)
+
+            for idx, url_path in enumerate(self.race_url_list):
+                matchese: re.Match|None = pattern.match(url_path)
+                if not matchese:
+                    continue
+
+                url = self.url_db + url_path
+                filepath = os.path.join(self.args.temp, "race." + matchese.group(1) + ".html.zstd")
+
+                tasks.append(limited_download(idx, url, filepath))
+
+            results = await asyncio.gather(*tasks)
+            return results
+
+    def scraping_html(self, race_id, html):
+        db_crud: SkylarkCrud = SkylarkCrud(self.db_url, logger = self.logger)
+        try:
             dataset_horse   = []
             dataset_jockey  = []
             dataset_trainer = []
@@ -245,8 +253,7 @@ class SkylarkScraper:
             data_race_name = race_head("dl.racedata dd h1").text()
 
             # track_surface, distance, weather, track_condition, post_time
-            matchese = None
-            matchese = re.match(r'^([^\d ]+).*?(\d{4})m\s*/\s*天候 : (\w+)\s*/\s*(.+)\s+/\s+発走 : (\d{1,2}:\d{1,2})', race_head("dl.racedata dd p span").text(), re.U)
+            matchese: re.Match|None = re.match(r'^([^\d ]+).*?(\d{4})m\s*/\s*天候 : (\w+)\s*/\s*(.+)\s+/\s+発走 : (\d{1,2}:\d{1,2})', race_head("dl.racedata dd p span").text(), re.U)
             if matchese:
                 data_track_surface_org = matchese.group(1)
                 if re.search(r'^芝', data_track_surface_org):
@@ -278,8 +285,7 @@ class SkylarkScraper:
                 data_post_time = matchese.group(5)
 
             # date, place_detail, class
-            matchese = None
-            matchese = re.match(r'^(\d{4})年(\d{1,2})月(\d{1,2})日\s+([^ ]+)\s+(.+)', race_head("div.mainrace_data p").eq(1).text())
+            matchese: re.Match|None = re.match(r'^(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日\s*([^ ]+)\s+(.+)', race_head("div.mainrace_data p").eq(1).text())
             if matchese:
                 data_date = matchese.group(1) + "-" + matchese.group(2) + "-" + matchese.group(3)
 
@@ -289,24 +295,24 @@ class SkylarkScraper:
 
             race_head = None
 
-            dataset_info =(
-                race_id,
-                data_race_name,
-                data_distance,
-                data_weather,
-                data_post_time,
-                data_race_number,
-                data_run_direction,
-                data_track_surface,
-                data_track_condition,
-                data_track_condition_score,
-                data_date,
-                data_place_detail,
-                util.SkylarkUtil.convertToClass2Int(data_class),
-                data_class
-            )
+            dataset_info = [{
+                "id":race_id,
+                "race_name":data_race_name,
+                "distance":data_distance,
+                "weather":data_weather,
+                "post_time":data_post_time,
+                "race_number":data_race_number,
+                "run_direction":data_run_direction,
+                "track_surface":data_track_surface,
+                "track_condition":data_track_condition,
+                "track_condition_score":data_track_condition_score,
+                "date":data_date,
+                "place_detail":data_place_detail,
+                "race_grade":SkylarkUtil.convertToClass2Int(data_class),
+                "race_class":data_class
+            }]
 
-            dbi.insertRaceInfo(dataset_info)
+            db_crud.insert_race_infos(dataset_info)
 
             race_result = dom("html body div#page div#contents_liquid table tr")
             for result_row in race_result[1:]:
@@ -418,10 +424,7 @@ class SkylarkScraper:
                 trainer_name = columns.eq(18).find("a").eq(0).text()
 
                 #馬主
-                try:
-                    owner_id = int(columns.eq(19).find("a").eq(0).attr("href").rsplit("/", 2)[1])
-                except ValueError as ex:
-                    owner_id = None
+                owner_id = columns.eq(19).find("a").eq(0).attr("href").rsplit("/", 2)[1]
                 owner_name = columns.eq(19).find("a").eq(0).text()
 
                 #賞金
@@ -430,66 +433,63 @@ class SkylarkScraper:
                 except ValueError as ex:
                     earning_money = 0
 
-                dataset_horse.append([
-                    horse_id,
-                    horse_name
-                ])
+                dataset_horse.append({
+                    "horse_id":horse_id,
+                    "horse_name":horse_name
+                })
 
-                dataset_jockey.append((
-                    jockey_id,
-                    jockey_name
-                ))
+                dataset_jockey.append({
+                    "jockey_id":jockey_id,
+                    "jockey_name":jockey_name
+                })
 
-                dataset_trainer.append((
-                    trainer_id,
-                    trainer_name
-                ))
+                dataset_trainer.append({
+                    "trainer_id":trainer_id,
+                    "trainer_name":trainer_name
+                })
 
-                dataset_owner.append((
-                    owner_id,
-                    owner_name
-                ))
+                dataset_owner.append({
+                    "owner_id":owner_id,
+                    "owner_name":owner_name
+                })
 
-                dataset_result.append((
-                    race_id,
-                    order_of_finish,
-                    bracket_number,
-                    horse_number,
-                    horse_id,
-                    #horse_name, # db not insert
-                    sex,
-                    age,
-                    basis_weight,
-                    jockey_id,
-                    finishing_time,
-                    margin,
-                    speed_figure,
-                    passing_rank,
-                    last_phase,
-                    odds,
-                    popularity,
-                    horse_weight,
-                    horse_weight_diff,
-                    remark,
-                    stable,
-                    trainer_id,
-                    #trainer_name, # db not insert
-                    owner_id,
-                    #owner_name, # db not insert
-                    earning_money
-                ))
+                dataset_result.append({
+                    "race_id":race_id,
+                    "horse_number":horse_number,
+                    "order_of_finish":order_of_finish,
+                    "bracket_number":bracket_number,
+                    "horse_id":horse_id,
+                    "sex":sex,
+                    "age":age,
+                    "basis_weight":basis_weight,
+                    "jockey_id":jockey_id,
+                    "finishing_time":finishing_time,
+                    "margin":margin,
+                    "speed_figure":speed_figure,
+                    "passing_rank":passing_rank,
+                    "last_phase":last_phase,
+                    "odds":odds,
+                    "popularity":popularity,
+                    "horse_weight":horse_weight,
+                    "horse_weight_diff":horse_weight_diff,
+                    "remark":remark,
+                    "stable":stable,
+                    "trainer_id":trainer_id,
+                    "owner_id":owner_id,
+                    "earning_money":earning_money
+                })
 
             race_result = None
-            dbi.insertHorse(dataset_horse)
-            dbi.insertJockey(dataset_jockey)
-            dbi.insertTrainer(dataset_trainer)
-            dbi.insertOwner(dataset_owner)
-            dbi.insertRaceResult(dataset_result)
+            db_crud.insert_horses(dataset_horse)
+            db_crud.insert_jockeys(dataset_jockey)
+            db_crud.insert_trainers(dataset_trainer)
+            db_crud.insert_owners(dataset_owner)
+            db_crud.insert_race_results(dataset_result)
 
             pay_block = dom("html body div#page div#contents dl.pay_block tr")
             for pay_result in pay_block:
                 columns = pq(pay_result).find("th")
-                ticket_type = util.SkylarkUtil.convertToTicketType2Int(columns.eq(0).text())
+                ticket_type = SkylarkUtil.convertToTicketType2Int(columns.eq(0).text())
 
                 columns = pq(pay_result).find("td")
                 horse_numbers_list = columns.eq(0).html().split("<br />")
@@ -498,14 +498,16 @@ class SkylarkScraper:
 
                 idx = 0
                 while idx < len(horse_numbers_list):
-                    dataset_payoff.append((
-                        race_id,
-                        ticket_type,
-                        horse_numbers_list[idx].replace(" ", "").replace("→", "->"),
-                        int(payoff_list[idx].replace(",", "")),
-                        int(popularity_list[idx])
-                    ))
+                    dataset_payoff.append({
+                        "race_id":race_id,
+                        "ticket_type":ticket_type,
+                        "horse_numbers":horse_numbers_list[idx].replace(" ", "").replace("→", "->"),
+                        "payoff":int(payoff_list[idx].replace(",", "")),
+                        "popularity":int(popularity_list[idx])
+                    })
                     idx = idx + 1
 
             pay_block = None
-            dbi.insertPayoff(dataset_payoff)
+            db_crud.insert_payoffs(dataset_payoff)
+        except Exception as ex:
+            self.logger.error(ex)

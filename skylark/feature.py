@@ -5,8 +5,7 @@
 # This software is released under the MIT License.
 #
 
-from . import db
-import logging
+from . import crud
 
 class SkylarkFeature():
     def __init__(self, args, logger):
@@ -19,7 +18,7 @@ class SkylarkFeature():
     def initialize(self, race_id, horse_number):
         assert race_id > 0 and horse_number > 0
 
-        with db.SkylarkDb(args = self.args, logger = self.logger) as dbi:
+        with crud.SkylarkCrud(args = self.args, logger = self.logger) as dbi:
             race_info = dbi.getRaceInfo(race_id)
             if (race_info is None):
                 return
@@ -48,4 +47,3 @@ class SkylarkFeature():
             #    print((race_info['distance'] - distance_avg) / distance_avg)
 
             earnings_per_share = dbi.getEarningsPerShare(horse_id, race_info['date'], 100)
-

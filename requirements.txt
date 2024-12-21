@@ -1,0 +1,6 @@
+PyMySQL
+httpx[http2]
+pyquery
+python-dotenv
+sqlalchemy
+zstandard
