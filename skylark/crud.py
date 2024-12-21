@@ -42,6 +42,24 @@ class SkylarkCrud:
                 session.rollback()
                 raise ex
 
+    def get_horse(self, horse_id) -> Horse|None:
+        with self.session() as session:
+            try:
+                horse = session.query(Horse).filter_by(id=horse_id).first()
+                return horse
+            except Exception as ex:
+                self.logger.error(f"{ex}")
+        return None
+
+    def get_horse_id(self, race_id, horse_number) -> int|None:
+        with self.session() as session:
+            try:
+                horse_id = session.query(RaceResult.horse_id).filter_by(race_id=race_id, horse_number=horse_number).first()
+                return horse_id
+            except Exception as ex:
+                self.logger.error(f"{ex}")
+        return None
+
     def insert_jockeys(self, dataset_list: list):
         with self.session() as session:
             try:
@@ -52,6 +70,24 @@ class SkylarkCrud:
             except Exception as ex:
                 session.rollback()
                 raise ex
+
+    def get_jockey(self, jockey_id) -> Jockey|None:
+        with self.session() as session:
+            try:
+                jockey = session.query(Jockey).filter_by(id=jockey_id).first()
+                return jockey
+            except Exception as ex:
+                self.logger.error(f"{ex}")
+        return None
+
+    def get_jockey_id(self, race_id, horse_number) -> int|None:
+        with self.session() as session:
+            try:
+                jockey_id = session.query(RaceResult.jockey_id).filter_by(race_id=race_id, horse_number=horse_number).first()
+                return jockey_id
+            except Exception as ex:
+                self.logger.error(f"{ex}")
+        return None
 
     def insert_trainers(self, dataset_list: list):
         with self.session() as session:
@@ -64,6 +100,24 @@ class SkylarkCrud:
                 session.rollback()
                 raise ex
 
+    def get_trainer(self, trainer_id) -> Trainer|None:
+        with self.session() as session:
+            try:
+                trainer = session.query(Trainer).filter_by(trainer_id=trainer_id).first()
+                return trainer
+            except Exception as ex:
+                self.logger.error(f"{ex}")
+        return None
+
+    def get_trainer_id(self, race_id, horse_number) -> int|None:
+        with self.session() as session:
+            try:
+                trainer_id = session.query(RaceResult.trainer_id).filter_by(race_id=race_id, horse_number=horse_number).first()
+                return trainer_id
+            except Exception as ex:
+                self.logger.error(f"{ex}")
+        return None
+
     def insert_owners(self, dataset_list: list):
         with self.session() as session:
             try:
@@ -75,16 +129,60 @@ class SkylarkCrud:
                 session.rollback()
                 raise ex
 
-    def insert_race_infos(self, dataset_list: list):
+    def get_owner(self, owner_id) -> Owner|None:
         with self.session() as session:
             try:
-                for dataset in dataset_list:
-                    race_info = RaceInfo(**dataset)
-                    session.merge(race_info)
+                owner = session.query(Owner).filter_by(owner_id=owner_id).first()
+                return owner
+            except Exception as ex:
+                self.logger.error(f"{ex}")
+        return None
+
+    def get_owner_id(self, race_id, horse_number) -> str|None:
+        with self.session() as session:
+            try:
+                owner_id = session.query(RaceResult.owner_id).filter_by(race_id=race_id, horse_number=horse_number).first()
+                return owner_id
+            except Exception as ex:
+                self.logger.error(f"{ex}")
+        return None
+
+    def insert_race_info(self, dataset: dict):
+        with self.session() as session:
+            try:
+                race_info = RaceInfo(**dataset)
+                session.merge(race_info)
                 session.commit()
             except Exception as ex:
                 session.rollback()
                 raise ex
+
+    def get_race_info(self, race_id):
+        with self.session() as session:
+            try:
+                race_info = session.query(RaceInfo).filter_by(id=race_id).first()
+                return race_info
+            except Exception as ex:
+                self.logger.error(f"{ex}")
+        return None
+
+    def get_race_info_count(self):
+        with self.session() as session:
+            try:
+                count = session.query(RaceInfo).count()
+                return count
+            except Exception as ex:
+                self.logger.error(f"{ex}")
+        return None
+
+    def get_race_info_list(self):
+        with self.session() as session:
+            try:
+                race_info_list = session.query(RaceInfo).order_by(RaceInfo.id).all()
+                return race_info_list
+            except Exception as ex:
+                self.logger.error(f"{ex}")
+        return None
 
     def insert_race_results(self, dataset_list: list):
         with self.session() as session:
@@ -129,41 +227,3 @@ class SkylarkCrud:
             except Exception as ex:
                 session.rollback()
                 self.logger.error(f"{ex}")
-
-    def delete_horse(self, horse_id):
-        with self.session() as session:
-            try:
-                horse = session.query(Horse).filter_by(id=horse_id).first()
-                if horse:
-                    session.delete(horse)
-                    session.commit()
-            except Exception as ex:
-                session.rollback()
-                self.logger.error(f"{ex}")
-
-    def get_all_horses(self):
-        with self.session() as session:
-            try:
-                horses = session.query(Horse).all()
-                return horses
-            except Exception as ex:
-                self.logger.error(f"{ex}")
-        return None
-
-    def get_race_info_count(self):
-        with self.session() as session:
-            try:
-                count = session.query(RaceInfo).count()
-                return count
-            except Exception as ex:
-                self.logger.error(f"{ex}")
-        return None
-
-    def get_race_info(self, race_id):
-        with self.session() as session:
-            try:
-                race_info = session.query(RaceInfo).filter_by(id=race_id).first()
-                return race_info
-            except Exception as ex:
-                self.logger.error(f"{ex}")
-        return None
