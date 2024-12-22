@@ -53,25 +53,20 @@ parser.add_argument('-U', '--update-race-list',
                     default=False,
                     help='Update race list(default: False)',)
 
-parser.add_argument('--update-race-data',
-                    action='store_true',
-                    default=False,
-                    help='Update race data(default: False)',)
-
-parser.add_argument('--rebuild',
+parser.add_argument('-R', '--rebuild',
                     action='store_true',
                     default=False,
                     help='Rebuild mode(default: False)',)
 
-parser.add_argument('--scraping-only',
+parser.add_argument('-S', '--scraping',
                     action='store_true',
                     default=False,
-                    help='scraping only mode(default: False)',)
+                    help='scraping mode(default: False)',)
 
-parser.add_argument('-V', '--verbose',
+parser.add_argument('-F', '--feature',
                     action='store_true',
                     default=False,
-                    help='Verbose mode(default: False)',)
+                    help='feature mode(default: False)',)
 
 parser.add_argument('--debug',
                     action='store_true',
@@ -98,10 +93,9 @@ logger.setLevel(logging.DEBUG)
 console = logging.StreamHandler()
 if args.debug == True:
     console.setLevel(logging.DEBUG)
-elif args.verbose == True:
-    console.setLevel(logging.INFO)
 else:
-    console.setLevel(logging.WARNING)
+    console.setLevel(logging.INFO)
+
 console.setFormatter(formatter)
 logger.addHandler(console)
 
@@ -131,13 +125,16 @@ if __name__ == "__main__":
 
         db_crud.create_tables()
 
-        if args.update_race_list == True or args.update_race_data == True or args.rebuild == True:
+        if args.update_race_list == True or args.rebuild == True:
             instance = scraper.SkylarkScraper(sqlalchemy_db_url, args = args, logger = logger)
             if args.update_race_list == True:
                 logger.info("make race URL list")
                 instance.make_race_url_list(period = args.period_of_months)
                 instance.export_race_url_list()
-            elif args.race_id is not None:
+
+        if args.scraping == True or args.rebuild == True:
+            instance = scraper.SkylarkScraper(sqlalchemy_db_url, args = args, logger = logger)
+            if len(args.race_id) > 0:
                 instance.set_race_url_list(args.race_id)
             else:
                 instance.import_race_url_list()
@@ -145,11 +142,8 @@ if __name__ == "__main__":
             logger.info("Start download race data")
             instance.download()
             logger.info("End download race data")
-            instance = None
 
-        if args.scraping_only == True:
-            logger.info("* Scraping only mode")
-        else:
+        if args.feature == True or args.rebuild == True:
             count = 0
             race_result_list = db_crud.get_race_result_list()
             count_total = len(race_result_list)

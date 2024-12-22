@@ -42,6 +42,7 @@ class SkylarkScraper:
     # レース結果URLリストを読み込み
     def import_race_url_list(self):
         filepath = os.path.join(self.args.temp, self.args.race_list_file)
+        print(filepath)
         if os.path.isfile(filepath) == False:
             self.logger.error("file not found: %s", filepath)
             return
@@ -167,7 +168,6 @@ class SkylarkScraper:
                         self.logger.debug("[%5d] race_id: %d, url: %s, start", idx, race_id, url)
 
                     html = None
-                    download_flag = False
 
                     if os.path.isfile(filepath) == False:
                         try:
@@ -181,7 +181,6 @@ class SkylarkScraper:
                                 # 既にUTF-8または他のエンコーディングの場合
                                 html = response.text
 
-                            download_flag = True
                         except Exception as ex:
                             self.logger.warning(ex)
                             return
@@ -201,9 +200,6 @@ class SkylarkScraper:
                         self.logger.warning("[%5d] race_id: %d, url: %s, no data", idx, race_id, url)
                     else:
                         self.scraping_html(race_id, html)
-
-                    if download_flag == True:
-                        await asyncio.sleep(0.1)
 
                     self.logger.debug("[%5d] url: %s, done", idx, url)
 
