@@ -315,22 +315,32 @@ class SkylarkScraper:
                 columns = pq(result_row).find("td")
 
                 #着順
+                order_of_finish = columns.eq(0).text()
                 try:
-                    order_of_finish = int(columns.eq(0).text())
+                    order_of_finish = int(order_of_finish)
                 except ValueError as ex:
-                    order_of_finish = None
+                    self.logger.warning(ex)
 
                 #枠番
-                bracket_number = int(columns.eq(1).text())
+                bracket_number = columns.eq(1).text()
+                try:
+                    bracket_number = int(bracket_number)
+                except ValueError as ex:
+                    self.logger.warning(ex)
 
                 #馬番
-                horse_number = int(columns.eq(2).text())
+                horse_number = columns.eq(2).text()
+                try:
+                    horse_number = int(horse_number)
+                except ValueError as ex:
+                    self.logger.warning(ex)
 
                 #馬ID
+                horse_id = columns.eq(3).find("a").eq(0).attr("href").rsplit("/", 2)[1]
                 try:
-                    horse_id = int(columns.eq(3).find("a").eq(0).attr("href").rsplit("/", 2)[1])
+                    horse_id = int(horse_id)
                 except ValueError as ex:
-                    horse_id = None
+                    self.logger.warning(ex)
 
                 #馬名
                 horse_name = columns.eq(3).find("a").eq(0).text()
@@ -348,10 +358,11 @@ class SkylarkScraper:
                 basis_weight = float(columns.eq(5).text())
 
                 #騎手
+                jockey_id = columns.eq(6).find("a").eq(0).attr("href").rsplit("/", 2)[1]
                 try:
-                    jockey_id = int(columns.eq(6).find("a").eq(0).attr("href").rsplit("/", 2)[1])
+                    jockey_id = int(jockey_id)
                 except ValueError as ex:
-                    jockey_id = None
+                    self.logger.warning(ex)
                 jockey_name = columns.eq(6).find("a").eq(0).text()
 
                 #タイム
@@ -365,31 +376,35 @@ class SkylarkScraper:
                 margin = columns.eq(8).text()
 
                 #タイム指数(有料)
+                speed_figure = columns.eq(9).text()
                 try:
-                    speed_figure = int(columns.eq(9).text())
+                    speed_figure = int(speed_figure)
                 except ValueError as ex:
-                    speed_figure = None
+                    self.logger.warning(ex)
 
                 #通過
                 passing_rank = columns.eq(10).text()
 
                 #上りタイム
+                last_phase = columns.eq(11).text()
                 try:
-                    last_phase = float(columns.eq(11).text())
+                    last_phase = float(last_phase)
                 except ValueError as ex:
-                    last_phase = None
+                    self.logger.warning(ex)
 
                 #単勝オッズ
+                odds = columns.eq(12).text()
                 try:
-                    odds = float(columns.eq(12).text())
+                    odds = float(odds)
                 except ValueError as ex:
-                    odds = None
+                    self.logger.warning(ex)
 
                 #人気
+                popularity = columns.eq(13).text()
                 try:
-                    popularity = int(columns.eq(13).text())
+                    popularity = int(popularity)
                 except ValueError as ex:
-                    popularity = None
+                    self.logger.warning(ex)
 
                 #馬体重
                 horse_weight = None
@@ -413,10 +428,11 @@ class SkylarkScraper:
                     stable = matchese.group(1)
 
                 #調教師
+                trainer_id = columns.eq(18).find("a").eq(0).attr("href").rsplit("/", 2)[1]
                 try:
-                    trainer_id = int(columns.eq(18).find("a").eq(0).attr("href").rsplit("/", 2)[1])
+                    trainer_id = int(trainer_id)
                 except ValueError as ex:
-                    trainer_id = None
+                    self.logger.warning(ex)
                 trainer_name = columns.eq(18).find("a").eq(0).text()
 
                 #馬主
@@ -424,10 +440,12 @@ class SkylarkScraper:
                 owner_name = columns.eq(19).find("a").eq(0).text()
 
                 #賞金
+                earning_money = columns.eq(20).text().replace(",", "")
                 try:
-                    earning_money = float(columns.eq(20).text().replace(",", ""))
+                    earning_money = float(earning_money)
                 except ValueError as ex:
                     earning_money = 0
+                    self.logger.warning(ex)
 
                 dataset_horse.append({
                     "horse_id":horse_id,
