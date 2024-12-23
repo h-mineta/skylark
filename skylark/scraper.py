@@ -31,9 +31,11 @@ class SkylarkScraper:
         self.cookies = httpx.Cookies()
         self.race_url_list = []
 
-        self.ignore_race_id: list = [
+        self.ignore_race_id: list[int] = [
             200808020398,
-            200808020399
+            200808020399,
+            202204010808,
+            202209040704
         ]
 
     def __enter__(self):
@@ -162,7 +164,7 @@ class SkylarkScraper:
 
                     try:
                         self.ignore_race_id.index(race_id)
-                        self.logger.warning("[%5d] race_id: %d, url: %s, reject[filter_race_id]", idx, race_id, url)
+                        self.logger.warning("[%5d] race_id: %d, url: %s, reject[ignore_race_id]", idx, race_id, url)
                         return
                     except ValueError as ex:
                         self.logger.debug("[%5d] race_id: %d, url: %s, start", idx, race_id, url)
@@ -176,7 +178,7 @@ class SkylarkScraper:
 
                             try:
                                 # EUC-JPエンコーディングでデコードし、UTF-8に変換
-                                html = response.content.decode("euc-jp")
+                                html = response.content.decode("euc-jp", errors="replace")
                             except UnicodeDecodeError:
                                 # 既にUTF-8または他のエンコーディングの場合
                                 html = response.text
@@ -319,7 +321,8 @@ class SkylarkScraper:
                 try:
                     order_of_finish = int(order_of_finish)
                 except ValueError as ex:
-                    self.logger.warning(ex)
+                    #self.logger.warning(ex)
+                    order_of_finish = None
 
                 #枠番
                 bracket_number = columns.eq(1).text()
@@ -376,11 +379,11 @@ class SkylarkScraper:
                 margin = columns.eq(8).text()
 
                 #タイム指数(有料)
-                speed_figure = columns.eq(9).text()
                 try:
-                    speed_figure = int(speed_figure)
+                    speed_figure = int(columns.eq(9).text())
                 except ValueError as ex:
-                    self.logger.warning(ex)
+                    #self.logger.warning(ex)
+                    speed_figure =  None
 
                 #通過
                 passing_rank = columns.eq(10).text()
@@ -390,21 +393,24 @@ class SkylarkScraper:
                 try:
                     last_phase = float(last_phase)
                 except ValueError as ex:
-                    self.logger.warning(ex)
+                    #self.logger.warning(ex)
+                    last_phase = None
 
                 #単勝オッズ
                 odds = columns.eq(12).text()
                 try:
                     odds = float(odds)
                 except ValueError as ex:
-                    self.logger.warning(ex)
+                    #self.logger.warning(ex)
+                    odds = None
 
                 #人気
                 popularity = columns.eq(13).text()
                 try:
                     popularity = int(popularity)
                 except ValueError as ex:
-                    self.logger.warning(ex)
+                    #self.logger.warning(ex)
+                    popularity = None
 
                 #馬体重
                 horse_weight = None
@@ -444,8 +450,8 @@ class SkylarkScraper:
                 try:
                     earning_money = float(earning_money)
                 except ValueError as ex:
+                    #self.logger.warning(ex)
                     earning_money = 0
-                    self.logger.warning(ex)
 
                 dataset_horse.append({
                     "horse_id":horse_id,
