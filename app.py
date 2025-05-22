@@ -11,6 +11,7 @@ import logging
 import os
 
 from dotenv import load_dotenv
+from tqdm import tqdm
 from skylark import crud, scraper,feature
 
 load_dotenv()
@@ -144,19 +145,14 @@ def main():
             logger.info("End download race data")
 
         if args.feature == True or args.rebuild == True:
-            count = 0
             race_result_list = db_crud.get_race_result_list()
             if not race_result_list:
                 logger.warning("レース結果リストが取得できませんでした。")
                 return
-            count_total = len(race_result_list)
             skylark_feature = feature.SkylarkFeature(args = args, logger = logger)
-            for race_result in race_result_list:
-                skylark_feature.initialize(db_crud, race_id = race_result.race_id, horse_number = race_result.horse_number)
 
-                count += 1
-                if (count % 100 == 0 or count == count_total):
-                    logger.info("処理中 ... {0:7.3f} % 完了".format(100.0 * count / count_total))
+            for race_result in tqdm(race_result_list):
+                skylark_feature.initialize(db_crud, race_id = race_result.race_id, horse_number = race_result.horse_number)
 
     except Exception as ex:
         logger.error(ex,exc_info=True)

@@ -3,4 +3,5 @@ httpx[http2]
 pyquery
 python-dotenv
 sqlalchemy
+tqdm
 zstandard
