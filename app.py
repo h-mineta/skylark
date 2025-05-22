@@ -104,7 +104,7 @@ db_config: dict = {
     "username": os.getenv("MYSQL_USERNAME","skylark"),
     "password": os.getenv("MYSQL_PASSWORD","skylarkpw!"),
     "hostname": os.getenv("MYSQL_HOSTNAME","localhost"),
-    "port"    : os.getenv("MYSQL_PORT", 3306),
+    "port"    : int(os.getenv("MYSQL_PORT", 3306)),
     "dbname"  : os.getenv("MYSQL_DATABASE","skylark"),
     "charset" : "utf8mb4"
 }
