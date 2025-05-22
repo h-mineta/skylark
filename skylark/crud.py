@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 #
-# Copyright (c) 2024 MINETA "m10i" Hiroki <h-mineta@0nyx.net>
+# Copyright (c) MINETA "m10i" Hiroki <h-mineta@0nyx.net>
 # This software is released under the MIT License.
 #
 
@@ -194,10 +194,10 @@ class SkylarkCrud:
                 session.rollback()
                 raise ex
 
-    def get_race_result_list(self) -> list[RaceResult]|None:
+    def get_race_result_list(self) -> list[RaceResult] | None:
         with self.session() as session:
             try:
-                race_result_list = session.query(RaceResult.race_id, RaceResult.horse_number).order_by(RaceResult.race_id, RaceResult.horse_number).all()
+                race_result_list = session.query(RaceResult).order_by(RaceResult.race_id, RaceResult.horse_number).all()
                 return race_result_list
             except Exception as ex:
                 self.logger.error(ex)

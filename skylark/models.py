@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 #
-# Copyright (c) 2024 MINETA "m10i" Hiroki <h-mineta@0nyx.net>
+# Copyright (c) MINETA "m10i" Hiroki <h-mineta@0nyx.net>
 # This software is released under the MIT License.
 #
 

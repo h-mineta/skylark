@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 #
-# Copyright (c) 2024 MINETA "m10i" Hiroki <h-mineta@0nyx.net>
+# Copyright (c) MINETA "m10i" Hiroki <h-mineta@0nyx.net>
 # This software is released under the MIT License.
 #
 
@@ -72,7 +72,8 @@ class SkylarkScraper:
 
         while period > 0:
             try:
-                response = httpx.get(url, timeout=os.environ.get("HTTP_TIMEOUT", 5), cookies=self.cookies)
+                timeout = float(os.environ.get("HTTP_TIMEOUT", 5))
+                response = httpx.get(url, timeout=timeout, cookies=self.cookies)
                 html = response.text
 
             except Exception as ex:
@@ -84,36 +85,36 @@ class SkylarkScraper:
             # 日別のrace/listを検索
             for doc in dom("div#contents table tr td a[href ^='/race/list/']").items():
                 path = doc.attr('href')
-                if pattern_race_list.match(path):
+                if isinstance(path, str) and pattern_race_list.match(path):
                     self.logger.info("race_list path: %s", path)
 
                     try:
-                        response = httpx.get(self.url_db + path, timeout=os.environ.get("HTTP_TIMEOUT", 5), cookies=self.cookies)
+                        response = httpx.get(self.url_db + path, timeout=timeout, cookies=self.cookies)
                         html = response.text
 
                     except Exception as ex:
                         self.logger.warning(ex)
-                        next
+                        continue
 
                     dom = pq(html)
 
                     # race/listから各競馬場事のrace結果URL(pathを取り出す
                     for doc in dom("div#contents div#main div.race_list a[href ^='/race/']").items():
                         path = doc.attr('href')
-                        if pattern_race.match(path):
+                        if isinstance(path, str) and  pattern_race.match(path):
                             self.race_url_list.append(path)
                             self.logger.debug("path: %s, name: %s", path, doc.text())
 
             # 先月分のURLを作成
             path = dom("div#contents div.race_calendar li a").eq(1).attr("href")
-            url = self.url_db + path
+            url = f"{self.url_db}{path}"
             period -= 1
 
             # sleep 100ms
             time.sleep(0.1)
 
     # netkeibaにログイン
-    def login(self, client: httpx.Client) -> bool:
+    def login(self, client: httpx.Client) -> bool|None:
         login_id = os.getenv("NETKEIABA_LOGINID","")
         password = os.getenv("NETKEIABA_PASSWORD","")
 
@@ -126,7 +127,8 @@ class SkylarkScraper:
             }
 
             print(login_id, password)
-            response = client.post(self.url_login, data=post, timeout=os.environ.get("HTTP_TIMEOUT", 5), cookies=self.cookies)
+            timeout = float(os.environ.get("HTTP_TIMEOUT", 5))
+            response = client.post(self.url_login, data=post, timeout=timeout, cookies=self.cookies)
             html = response.text
             dom = pq(html)
 
@@ -149,7 +151,11 @@ class SkylarkScraper:
             result = self.login(client)
             self.logger.info("login: %s", result)
 
-        asyncio.run(self.download_concurrently(max_concurrent_requests=os.environ.get("MAX_CONCURRENT_REQUESTS", 4)))
+        asyncio.run(
+            self.download_concurrently(
+                max_concurrent_requests=int(os.environ.get("MAX_CONCURRENT_REQUESTS", 4))
+            )
+        )
 
     async def download_concurrently(self, max_concurrent_requests=4):
         pattern = re.compile(r"^/race/([0-9]+)/$")
@@ -173,7 +179,10 @@ class SkylarkScraper:
 
                     if os.path.isfile(filepath) == False:
                         try:
-                            response = await client.get(url, timeout=os.environ.get("HTTP_TIMEOUT", 5))
+                            response = await client.get(
+                                url,
+                                timeout=float(os.environ.get("HTTP_TIMEOUT", 5))
+                            )
                             response.raise_for_status()
 
                             try:
@@ -245,13 +254,23 @@ class SkylarkScraper:
             data_track_surface_org = None
             data_place_detail = None
             data_class = None
+            data_date = None
 
-            data_race_number = int(race_head("dl.racedata dt").text().split(" ", 1)[0])
+            data_race_number_text = str(race_head("dl.racedata dt").text())
+            if data_race_number_text:
+                data_race_number = int(data_race_number_text.split(" ", 1)[0])
+            else:
+                data_race_number = None
 
             data_race_name = race_head("dl.racedata dd h1").text()
 
             # track_surface, distance, weather, track_condition, post_time
-            matchese: re.Match|None = re.match(r'^([^\d ]+).*?(\d{4})m\s*/\s*天候 : (\w+)\s*/\s*(.+)\s+/\s+発走 : (\d{1,2}:\d{1,2})', race_head("dl.racedata dd p span").text(), re.U)
+            race_info_text = str(race_head("dl.racedata dd p span").text())
+            matchese: re.Match | None = re.match(
+                r'^([^\d ]+).*?(\d{4})m\s*/\s*天候 : (\w+)\s*/\s*(.+)\s+/\s+発走 : (\d{1,2}:\d{1,2})',
+                race_info_text,
+                re.U
+            )
             if matchese:
                 data_track_surface_org = matchese.group(1)
                 if re.search(r'^芝', data_track_surface_org):
@@ -283,12 +302,11 @@ class SkylarkScraper:
                 data_post_time = matchese.group(5)
 
             # date, place_detail, class
-            matchese: re.Match|None = re.match(r'^(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日\s*([^ ]+)\s+(.+)', race_head("div.mainrace_data p").eq(1).text())
+            text_value = str(race_head("div.mainrace_data p").eq(1).text())
+            matchese = re.match(r'^(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日\s*([^ ]+)\s+(.+)', text_value)
             if matchese:
                 data_date = matchese.group(1) + "-" + matchese.group(2) + "-" + matchese.group(3)
-
                 data_place_detail = matchese.group(4)
-
                 data_class = matchese.group(5)
 
             race_head = None
@@ -317,7 +335,7 @@ class SkylarkScraper:
                 columns = pq(result_row).find("td")
 
                 #着順
-                order_of_finish = columns.eq(0).text()
+                order_of_finish = str(columns.eq(0).text())
                 try:
                     order_of_finish = int(order_of_finish)
                 except ValueError as ex:
@@ -325,43 +343,43 @@ class SkylarkScraper:
                     order_of_finish = None
 
                 #枠番
-                bracket_number = columns.eq(1).text()
+                bracket_number = str(columns.eq(1).text())
                 try:
                     bracket_number = int(bracket_number)
                 except ValueError as ex:
                     self.logger.warning(ex)
 
                 #馬番
-                horse_number = columns.eq(2).text()
+                horse_number = str(columns.eq(2).text())
                 try:
                     horse_number = int(horse_number)
                 except ValueError as ex:
                     self.logger.warning(ex)
 
                 #馬ID
-                horse_id = columns.eq(3).find("a").eq(0).attr("href").rsplit("/", 2)[1]
+                horse_id = str(columns.eq(3).find("a").eq(0).attr("href")).rsplit("/", 2)[1]
                 try:
                     horse_id = int(horse_id)
                 except ValueError as ex:
                     self.logger.warning(ex)
 
                 #馬名
-                horse_name = columns.eq(3).find("a").eq(0).text()
+                horse_name = str(columns.eq(3).find("a").eq(0).text())
 
                 #性別、年齢
                 sex = None
                 age = 0
                 matchese = None
-                matchese = re.match(r'^(.)(\d+)$', columns.eq(4).text())
+                matchese = re.match(r'^(.)(\d+)$', str(columns.eq(4).text()))
                 if matchese:
                     sex = matchese.group(1)
                     age = int(matchese.group(2))
 
                 #斤量
-                basis_weight = float(columns.eq(5).text())
+                basis_weight = float(str(columns.eq(5).text()))
 
                 #騎手
-                jockey_id = columns.eq(6).find("a").eq(0).attr("href").rsplit("/", 2)[1]
+                jockey_id = str(columns.eq(6).find("a").eq(0).attr("href")).rsplit("/", 2)[1]
                 try:
                     jockey_id = int(jockey_id)
                 except ValueError as ex:
@@ -370,26 +388,25 @@ class SkylarkScraper:
 
                 #タイム
                 finishing_time = None
-                matchese = None
-                matchese = re.match(r'^(\d+:\d+\.\d+)$', columns.eq(7).text())
+                matchese = re.match(r'^(\d+:\d+\.\d+)$', str(columns.eq(7).text()))
                 if matchese:
                     finishing_time = '00:'+matchese.group(1)
 
                 #着差
-                margin = columns.eq(8).text()
+                margin = str(columns.eq(8).text())
 
                 #タイム指数(有料)
                 try:
-                    speed_figure = int(columns.eq(9).text())
+                    speed_figure = int(str(columns.eq(9).text()))
                 except ValueError as ex:
                     #self.logger.warning(ex)
                     speed_figure =  None
 
                 #通過
-                passing_rank = columns.eq(10).text()
+                passing_rank = str(columns.eq(10).text())
 
                 #上りタイム
-                last_phase = columns.eq(11).text()
+                last_phase = str(columns.eq(11).text())
                 try:
                     last_phase = float(last_phase)
                 except ValueError as ex:
@@ -397,7 +414,7 @@ class SkylarkScraper:
                     last_phase = None
 
                 #単勝オッズ
-                odds = columns.eq(12).text()
+                odds = str(columns.eq(12).text())
                 try:
                     odds = float(odds)
                 except ValueError as ex:
@@ -405,7 +422,7 @@ class SkylarkScraper:
                     odds = None
 
                 #人気
-                popularity = columns.eq(13).text()
+                popularity = str(columns.eq(13).text())
                 try:
                     popularity = int(popularity)
                 except ValueError as ex:
@@ -416,7 +433,7 @@ class SkylarkScraper:
                 horse_weight = None
                 horse_weight_diff = None
                 matchese = None
-                matchese = re.match(r'^(\d+)\(\+?(\-?\d+)\)$', columns.eq(14).text())
+                matchese = re.match(r'^(\d+)\(\+?(\-?\d+)\)$', str(columns.eq(14).text()))
                 if matchese:
                     horse_weight = matchese.group(1)
                     horse_weight_diff = matchese.group(2)
@@ -429,12 +446,12 @@ class SkylarkScraper:
                 # 厩舎
                 stable = '不明'
                 matchese = None
-                matchese = re.match(r'\[(.)\]', columns.eq(18).text())
+                matchese = re.match(r'\[(.)\]', str(columns.eq(18).text()))
                 if matchese:
                     stable = matchese.group(1)
 
                 #調教師
-                trainer_id = columns.eq(18).find("a").eq(0).attr("href").rsplit("/", 2)[1]
+                trainer_id = str(columns.eq(18).find("a").eq(0).attr("href")).rsplit("/", 2)[1]
                 try:
                     trainer_id = int(trainer_id)
                 except ValueError as ex:
@@ -442,11 +459,11 @@ class SkylarkScraper:
                 trainer_name = columns.eq(18).find("a").eq(0).text()
 
                 #馬主
-                owner_id = columns.eq(19).find("a").eq(0).attr("href").rsplit("/", 2)[1]
+                owner_id = str(columns.eq(19).find("a").eq(0).attr("href")).rsplit("/", 2)[1]
                 owner_name = columns.eq(19).find("a").eq(0).text()
 
                 #賞金
-                earning_money = columns.eq(20).text().replace(",", "")
+                earning_money = str(columns.eq(20).text()).replace(",", "")
                 try:
                     earning_money = float(earning_money)
                 except ValueError as ex:
@@ -512,9 +529,9 @@ class SkylarkScraper:
                 ticket_type = SkylarkUtil.convertToTicketType2Int(columns.eq(0).text())
 
                 columns = pq(pay_result).find("td")
-                horse_numbers_list = columns.eq(0).html().split("<br />")
-                payoff_list = columns.eq(1).html().split("<br />")
-                popularity_list = columns.eq(2).html().split("<br />")
+                horse_numbers_list = str(columns.eq(0).html()).split("<br />")
+                payoff_list = str(columns.eq(1).html()).split("<br />")
+                popularity_list = str(columns.eq(2).html()).split("<br />")
 
                 idx = 0
                 while idx < len(horse_numbers_list):

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #
-# Copyright (c) 2024 MINETA "m10i" Hiroki <h-mineta@0nyx.net>
+# Copyright (c) MINETA "m10i" Hiroki <h-mineta@0nyx.net>
 # This software is released under the MIT License.
 #
 
@@ -112,7 +112,7 @@ db_config: dict = {
 sqlalchemy_db_url: str = "{protocol:s}://{username:s}:{password:s}@{hostname:s}:{port:d}/{dbname:s}?charset={charset:s}".\
     format(**db_config)
 
-if __name__ == "__main__":
+def main():
     args.temp = os.path.normcase(args.temp)
     # tempディレクトリ作成
     if os.path.isdir(args.temp) == False:
@@ -146,10 +146,13 @@ if __name__ == "__main__":
         if args.feature == True or args.rebuild == True:
             count = 0
             race_result_list = db_crud.get_race_result_list()
+            if not race_result_list:
+                logger.warning("レース結果リストが取得できませんでした。")
+                return
             count_total = len(race_result_list)
-            feature = feature.SkylarkFeature(args = args, logger = logger)
+            skylark_feature = feature.SkylarkFeature(args = args, logger = logger)
             for race_result in race_result_list:
-                feature.initialize(db_crud, race_id = race_result.race_id, horse_number = race_result.horse_number)
+                skylark_feature.initialize(db_crud, race_id = race_result.race_id, horse_number = race_result.horse_number)
 
                 count += 1
                 if (count % 100 == 0 or count == count_total):
@@ -157,3 +160,6 @@ if __name__ == "__main__":
 
     except Exception as ex:
         logger.error(ex,exc_info=True)
+
+if __name__ == "__main__":
+    main()

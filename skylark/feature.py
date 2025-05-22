@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 #
-# Copyright (c) 2024 MINETA "m10i" Hiroki <h-mineta@0nyx.net>
+# Copyright (c) MINETA "m10i" Hiroki <h-mineta@0nyx.net>
 # This software is released under the MIT License.
 #
 
+import dis
 from skylark.crud import SkylarkCrud
 
 
@@ -27,23 +28,34 @@ class SkylarkFeature():
 
         horse_id = db_crud.get_horse_id(race_id, horse_number)
 
+        if horse_id is None:
+            return
+
         jockey_id = db_crud.get_jockey_id(race_id, horse_number)
 
         trainer_id = db_crud.get_trainer_id(race_id, horse_number)
 
         owner_id = db_crud.get_owner_id(race_id, horse_number)
 
-        speed_figure_last = db_crud.get_speed_figure_last(horse_id, race_info.date)
+        # 安全に取得
+        date = getattr(race_info, "date", None)
+        distance = getattr(race_info, "distance", None)
+        if not isinstance(distance, int):
+            distance = None
 
-        speed_figure_avg = db_crud.get_speed_figure_avg(horse_id, race_info.date, 5)
+        speed_figure_last = db_crud.get_speed_figure_last(horse_id, date)
 
-        winner_avg = db_crud.get_winner_avg(horse_id, race_info.date, 5)
+        speed_figure_avg = db_crud.get_speed_figure_avg(horse_id, date, 5)
 
-        disavesr = db_crud.get_disavesr(horse_id, race_info.date, race_info.distance, 100)
+        winner_avg = db_crud.get_winner_avg(horse_id, date, 5)
 
-        distance_avg = db_crud.get_distance_avg(horse_id, race_info.date, 100)
+        disavesr = None
+        if distance is not None:
+            disavesr = db_crud.get_disavesr(horse_id, date, distance, 100)
+
+        distance_avg = db_crud.get_distance_avg(horse_id, date, 100)
 
         #if distance_avg is not None:
         #    print((race_info.distance - distance_avg) / distance_avg)
 
-        earnings_per_share = db_crud.get_earnings_per_share(horse_id, race_info.date, 100)
+        earnings_per_share = db_crud.get_earnings_per_share(horse_id, date, 100)
