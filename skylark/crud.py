@@ -68,17 +68,6 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def insert_jockeys(self, dataset_list: list):
-        with self.session() as session:
-            try:
-                for dataset in dataset_list:
-                    jockey = Jockey(**dataset)
-                    session.merge(jockey)
-                session.commit()
-            except Exception as ex:
-                session.rollback()
-                raise ex
-
     def get_jockey(self, jockey_id) -> Jockey|None:
         with self.session() as session:
             try:
@@ -99,7 +88,18 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def insert_trainers(self, dataset_list: list):
+    def insert_jockeys(self, dataset_list: list) -> None:
+        with self.session() as session:
+            try:
+                for dataset in dataset_list:
+                    jockey = Jockey(**dataset)
+                    session.merge(jockey)
+                session.commit()
+            except Exception as ex:
+                session.rollback()
+                raise ex
+
+    def insert_trainers(self, dataset_list: list) -> None:
         with self.session() as session:
             try:
                 for dataset in dataset_list:
@@ -130,7 +130,7 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def insert_owners(self, dataset_list: list):
+    def insert_owners(self, dataset_list: list) -> None:
         with self.session() as session:
             try:
                 for dataset in dataset_list:
@@ -161,7 +161,7 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def insert_race_info(self, dataset: dict):
+    def insert_race_info(self, dataset: dict) -> None:
         with self.session() as session:
             try:
                 race_info = RaceInfo(**dataset)
@@ -189,6 +189,22 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
+    def get_race_result(self, race_id: int, horse_number: int) -> RaceResult|None:
+        with self.session() as session:
+            try:
+                return session.query(RaceResult).filter_by(race_id=race_id, horse_number=horse_number).first()
+            except Exception as ex:
+                self.logger.error(ex)
+        return None
+
+    def get_race_result_list(self) -> list[RaceResult] | None:
+        with self.session() as session:
+            try:
+                return session.query(RaceResult).order_by(RaceResult.race_id, RaceResult.horse_number).all()
+            except Exception as ex:
+                self.logger.error(ex)
+        return None
+
     def insert_race_results(self, dataset_list: list):
         with self.session() as session:
             try:
@@ -200,16 +216,7 @@ class SkylarkCrud:
                 session.rollback()
                 raise ex
 
-    def get_race_result_list(self) -> list[RaceResult] | None:
-        with self.session() as session:
-            try:
-                race_result_list = session.query(RaceResult).order_by(RaceResult.race_id, RaceResult.horse_number).all()
-                return race_result_list
-            except Exception as ex:
-                self.logger.error(ex)
-        return None
-
-    def insert_payoffs(self, dataset_list: list):
+    def insert_payoffs(self, dataset_list: list) -> None:
         with self.session() as session:
             try:
                 for dataset in dataset_list:
@@ -220,7 +227,7 @@ class SkylarkCrud:
                 session.rollback()
                 raise ex
 
-    def insert_features(self, dataset_list: list):
+    def insert_features(self, dataset_list: list) -> None:
         with self.session() as session:
             try:
                 for dataset in dataset_list:
@@ -231,7 +238,7 @@ class SkylarkCrud:
                 session.rollback()
                 raise ex
 
-    def update_horse(self, horse_id, name):
+    def update_horse(self, horse_id, name) -> None:
         with self.session() as session:
             try:
                 horse = session.query(Horse).filter_by(id=horse_id).first()
@@ -242,7 +249,7 @@ class SkylarkCrud:
                 session.rollback()
                 raise ex
 
-    def get_order_of_finish(self, race_id: int, horse_number: int):
+    def get_order_of_finish(self, race_id: int, horse_number: int) -> float|None:
         assert race_id > 0 and horse_number > 0
 
         with self.session() as session:
@@ -261,7 +268,7 @@ class SkylarkCrud:
                 print(ex)
         return None
 
-    def get_speed_figure_last(self, horse_id: int, date):
+    def get_speed_figure_last(self, horse_id: int, date) -> float|None:
         assert horse_id > 0
 
         with self.session() as session:
@@ -283,7 +290,7 @@ class SkylarkCrud:
                 print(ex)
         return None
 
-    def get_speed_figure_avg(self, horse_id: int, date, limit: int):
+    def get_speed_figure_avg(self, horse_id: int, date, limit: int) -> float|None:
         assert horse_id > 0 and limit > 0
 
         with self.session() as session:
@@ -307,7 +314,7 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def get_winner_avg(self, horse_id: int, date, limit: int):
+    def get_winner_avg(self, horse_id: int, date, limit: int) -> float|None:
         assert horse_id > 0 and limit > 0
 
         with self.session() as session:
@@ -332,7 +339,7 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def get_disavesr(self, horse_id: int, date, distance: int, limit: int):
+    def get_disavesr(self, horse_id: int, date, distance: int, limit: int) -> float|None:
         """
         特定の馬の過去のレース距離データを基に、speed_figure の平均を取得します。
         """
@@ -360,7 +367,7 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def get_distance_avg(self, horse_id: int, date, limit: int):
+    def get_distance_avg(self, horse_id: int, date, limit: int) -> float|None:
         """
         特定の馬の過去のレース距離の平均を取得します。
         """
@@ -386,8 +393,7 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-
-    def get_earnings_per_share(self, horse_id: int, date, limit: int):
+    def get_earnings_per_share(self, horse_id: int, date, limit: int) -> float|None:
         """
         特定の馬の過去のレースでの賞金の平均を取得します。
         """

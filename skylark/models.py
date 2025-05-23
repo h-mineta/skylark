@@ -6,7 +6,7 @@
 #
 
 from sqlalchemy import (
-    Column, Integer, BigInteger, String, Float, Text, Time, Date,
+    JSON, Column, Integer, BigInteger, String, Float, Text, Time, Date,
     ForeignKey, Index
 )
 from sqlalchemy.ext.declarative import declarative_base
@@ -102,21 +102,7 @@ class Payoff(Base):
 class Feature(Base):
     __tablename__ = 'feature_tbl'
     race_id = Column(BigInteger, ForeignKey('race_info_tbl.id'), primary_key=True)
-    horse_number = Column(Integer, primary_key=True)
-    grade = Column(Integer, nullable=False)
-    order_of_finish = Column(Integer)
-    horse_id = Column(BigInteger, ForeignKey('horse_tbl.horse_id'), nullable=False)
+    horse_id = Column(BigInteger, ForeignKey('horse_tbl.horse_id'), primary_key=True)
     jockey_id = Column(BigInteger, ForeignKey('jockey_tbl.jockey_id'), nullable=False)
     trainer_id = Column(BigInteger, ForeignKey('trainer_tbl.trainer_id'), nullable=False)
-    sex = Column(String(8), nullable=False)
-    age = Column(Integer, nullable=False)
-    basis_weight = Column(Float)
-    weather = Column(String(8), nullable=False)
-    track_surface = Column(String(8), nullable=False)
-    track_condition = Column(String(8), nullable=False)
-    track_condition_score = Column(Float)
-
-    # インデックス
-    __table_args__ = (
-        Index('idx_feature_race_horse', 'race_id', 'horse_number'),
-    )
+    calculation_result_json = Column(JSON, nullable=True)

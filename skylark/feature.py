@@ -5,6 +5,7 @@
 # This software is released under the MIT License.
 #
 
+import json
 from skylark.crud import SkylarkCrud
 
 
@@ -20,7 +21,11 @@ class SkylarkFeature():
         assert race_id > 0 and horse_number > 0
 
         race_info = db_crud.get_race_info(race_id)
-        if (race_info is None):
+        if race_info is None:
+            return
+
+        race_result = db_crud.get_race_result(race_id, horse_number)
+        if race_result is None:
             return
 
         order_of_finish = db_crud.get_order_of_finish(race_id, horse_number)
@@ -34,7 +39,7 @@ class SkylarkFeature():
 
         trainer_id = db_crud.get_trainer_id(race_id, horse_number)
 
-        owner_id = db_crud.get_owner_id(race_id, horse_number)
+        #owner_id = db_crud.get_owner_id(race_id, horse_number)
 
         # 安全に取得
         date = getattr(race_info, "date", None)
@@ -58,3 +63,22 @@ class SkylarkFeature():
         #    print((race_info.distance - distance_avg) / distance_avg)
 
         earnings_per_share = db_crud.get_earnings_per_share(horse_id, date, 100)
+
+        calculation_result = {
+            "sppeed_figure_last": speed_figure_last,
+            "speed_figure_avg": speed_figure_avg,
+            "winner_avg": winner_avg,
+            "disavesr": disavesr.as_integer_ratio() if disavesr is not None else None,
+            "distance_avg": distance_avg.as_integer_ratio() if distance_avg is not None else None,
+            "earnings_per_share": earnings_per_share
+        }
+
+        db_crud.insert_features([
+            {
+                "race_id": race_id,
+                "horse_id": horse_id,
+                "jockey_id": jockey_id,
+                "trainer_id": trainer_id,
+                "calculation_result_json": json.dumps(calculation_result, ensure_ascii=False, sort_keys=True),
+            }
+        ])
