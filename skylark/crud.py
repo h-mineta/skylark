@@ -14,7 +14,13 @@ from skylark.models import Base, Feature, Horse, Jockey, Trainer, Owner, RaceInf
 class SkylarkCrud:
     def __init__(self, db_url: str, logger: Logger):
         # Create the engine and session
-        self.engine = create_engine(db_url)
+        self.engine = create_engine(
+            db_url,
+            pool_size=1,
+            max_overflow=0,
+            pool_recycle=3600,
+            pool_pre_ping=True
+        )
         self.session = sessionmaker(bind=self.engine)
         # Set the logger
         self.logger: Logger = logger

@@ -9,6 +9,8 @@
 import argparse
 import logging
 import os
+import concurrent.futures
+import multiprocessing
 
 from dotenv import load_dotenv
 from tqdm import tqdm
@@ -113,6 +115,12 @@ db_config: dict = {
 sqlalchemy_db_url: str = "{protocol:s}://{username:s}:{password:s}@{hostname:s}:{port:d}/{dbname:s}?charset={charset:s}".\
     format(**db_config)
 
+def process_feature(args_tuple):
+    sqlalchemy_db_url, args, logger, race_result = args_tuple
+    db_crud = crud.SkylarkCrud(sqlalchemy_db_url, logger=logger)
+    skylark_feature = feature.SkylarkFeature(args=args, logger=logger)
+    skylark_feature.initialize(db_crud, race_id=race_result.race_id, horse_number=race_result.horse_number)
+
 def main(args: argparse.Namespace, logger: logging.Logger, sqlalchemy_db_url: str):
     args.temp = os.path.normcase(args.temp)
     # tempディレクトリ作成
@@ -149,10 +157,13 @@ def main(args: argparse.Namespace, logger: logging.Logger, sqlalchemy_db_url: st
             if not race_result_list:
                 logger.warning("Failed to retrieve race results.")
                 return
-            skylark_feature = feature.SkylarkFeature(args = args, logger = logger)
 
-            for race_result in tqdm(race_result_list):
-                skylark_feature.initialize(db_crud, race_id = race_result.race_id, horse_number = race_result.horse_number)
+            logger.info("Start feature")
+            max_workers = min(8, multiprocessing.cpu_count())
+            with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+                args_iter = ((sqlalchemy_db_url, args, logger, race_result) for race_result in race_result_list)
+                list(tqdm(executor.map(process_feature, args_iter), total=len(race_result_list)))
+            logger.info("End feature")
 
     except Exception as ex:
         logger.error(ex,exc_info=True)
