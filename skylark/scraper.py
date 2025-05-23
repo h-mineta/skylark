@@ -31,6 +31,7 @@ class SkylarkScraper:
         self.cookies = httpx.Cookies()
         self.race_url_list = []
 
+        # 無視するレースID
         self.ignore_race_id: list[int] = [
             200808020398,
             200808020399,
@@ -71,6 +72,7 @@ class SkylarkScraper:
         pattern_race_list = re.compile(r"^/race/list/[0-9]{8}/$")
 
         while period > 0:
+            html: str = ""
             try:
                 timeout = float(os.environ.get("HTTP_TIMEOUT", 5))
                 response = httpx.get(url, timeout=timeout, cookies=self.cookies)
@@ -80,6 +82,10 @@ class SkylarkScraper:
                 self.logger.error(ex)
                 return
 
+            if html == "":
+                self.logger.warning("html is empty")
+                continue
+
             dom = pq(html)
 
             # 日別のrace/listを検索
@@ -88,15 +94,25 @@ class SkylarkScraper:
                 if isinstance(path, str) and pattern_race_list.match(path):
                     self.logger.info("race_list path: %s", path)
 
-                    try:
-                        response = httpx.get(self.url_db + path, timeout=timeout, cookies=self.cookies)
-                        html = response.text
+                    for _ in range(1, 3):
+                        try:
+                            response = httpx.get(self.url_db + path, timeout=timeout, cookies=self.cookies)
+                            html = response.text
 
-                    except Exception as ex:
-                        self.logger.warning(ex)
-                        continue
+                        except Exception as ex:
+                            self.logger.warning(ex)
+                            continue
 
-                    dom = pq(html)
+                        if html == "":
+                            self.logger.warning("html is empty")
+                            time.sleep(3) # sleep 3sec
+                            continue
+
+                        try:
+                            dom = pq(html)
+                        except Exception as ex:
+                            self.logger.error(ex)
+                        break
 
                     # race/listから各競馬場事のrace結果URL(pathを取り出す
                     for doc in dom("div#contents div#main div.race_list a[href ^='/race/']").items():
@@ -104,6 +120,8 @@ class SkylarkScraper:
                         if isinstance(path, str) and  pattern_race.match(path):
                             self.race_url_list.append(path)
                             self.logger.debug("path: %s, name: %s", path, doc.text())
+
+                    time.sleep(0.2) # sleep 100ms
 
             # 先月分のURLを作成
             path = dom("div#contents div.race_calendar li a").eq(1).attr("href")
