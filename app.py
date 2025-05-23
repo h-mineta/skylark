@@ -113,7 +113,7 @@ db_config: dict = {
 sqlalchemy_db_url: str = "{protocol:s}://{username:s}:{password:s}@{hostname:s}:{port:d}/{dbname:s}?charset={charset:s}".\
     format(**db_config)
 
-def main():
+def main(args: argparse.Namespace, logger: logging.Logger, sqlalchemy_db_url: str):
     args.temp = os.path.normcase(args.temp)
     # tempディレクトリ作成
     if os.path.isdir(args.temp) == False:
@@ -147,7 +147,7 @@ def main():
         if args.feature == True or args.rebuild == True:
             race_result_list = db_crud.get_race_result_list()
             if not race_result_list:
-                logger.warning("レース結果リストが取得できませんでした。")
+                logger.warning("Failed to retrieve race results.")
                 return
             skylark_feature = feature.SkylarkFeature(args = args, logger = logger)
 
@@ -158,4 +158,4 @@ def main():
         logger.error(ex,exc_info=True)
 
 if __name__ == "__main__":
-    main()
+    main(args, logger, sqlalchemy_db_url)

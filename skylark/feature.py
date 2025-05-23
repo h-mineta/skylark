@@ -5,7 +5,6 @@
 # This software is released under the MIT License.
 #
 
-import dis
 from skylark.crud import SkylarkCrud
 
 
