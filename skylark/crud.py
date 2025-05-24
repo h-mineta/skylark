@@ -34,8 +34,28 @@ class SkylarkCrud:
     def create_tables(self):
         Base.metadata.create_all(self.engine)
 
+    def create_table(self, table_name: str):
+        try:
+            table = Base.metadata.tables.get(table_name)
+            if table is not None:
+                table.create(self.engine)
+            else:
+                self.logger.warning(f"Table {table_name} does not exist.")
+        except Exception as ex:
+            self.logger.error(f"{ex}")
+
     def drop_tables(self):
         Base.metadata.drop_all(self.engine)
+
+    def drop_table(self, table_name: str):
+        try:
+            table = Base.metadata.tables.get(table_name)
+            if table is not None:
+                table.drop(self.engine)
+            else:
+                self.logger.warning(f"Table {table_name} does not exist.")
+        except Exception as ex:
+            self.logger.error(f"{ex}")
 
     def insert_horses(self, dataset_list: list):
         with self.session() as session:

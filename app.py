@@ -51,15 +51,20 @@ parser.add_argument('--period-of-months',
                     help='period of months(default: 12)',
                     metavar=None)
 
+parser.add_argument('--rebuild-all-tables',
+                    action='store_true',
+                    default=False,
+                    help='Rebuild all tables(default: False)',)
+
+parser.add_argument('-Rf', '--rebuild-feature',
+                    action='store_true',
+                    default=False,
+                    help='Rebuild feature table(default: False)',)
+
 parser.add_argument('-U', '--update-race-list',
                     action='store_true',
                     default=False,
                     help='Update race list(default: False)',)
-
-parser.add_argument('-R', '--rebuild',
-                    action='store_true',
-                    default=False,
-                    help='Rebuild mode(default: False)',)
 
 parser.add_argument('-S', '--scraping',
                     action='store_true',
@@ -129,19 +134,22 @@ def main(args: argparse.Namespace, logger: logging.Logger, sqlalchemy_db_url: st
 
     db_crud = crud.SkylarkCrud(sqlalchemy_db_url, logger=logger)
     try:
-        if args.rebuild == True:
+        if args.rebuild_all_tables == True:
             db_crud.drop_tables()
+
+        if args.rebuild_feature == True:
+            db_crud.drop_table("feature_tbl")
 
         db_crud.create_tables()
 
-        if args.update_race_list == True or args.rebuild == True:
+        if args.update_race_list == True:
             instance = scraper.SkylarkScraper(sqlalchemy_db_url, args = args, logger = logger)
             if args.update_race_list == True:
                 logger.info("make race URL list")
                 instance.make_race_url_list(period = args.period_of_months)
                 instance.export_race_url_list()
 
-        if args.scraping == True or args.rebuild == True:
+        if args.scraping == True:
             instance = scraper.SkylarkScraper(sqlalchemy_db_url, args = args, logger = logger)
             if len(args.race_id) > 0:
                 instance.set_race_url_list(args.race_id)
@@ -152,7 +160,7 @@ def main(args: argparse.Namespace, logger: logging.Logger, sqlalchemy_db_url: st
             instance.download()
             logger.info("End download race data")
 
-        if args.feature == True or args.rebuild == True:
+        if args.feature == True or args.rebuild_feature == True:
             race_result_list = db_crud.get_race_result_list()
             if not race_result_list:
                 logger.warning("Failed to retrieve race results.")
