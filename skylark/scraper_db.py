@@ -19,7 +19,7 @@ from pyquery import PyQuery as pq
 from skylark.crud import SkylarkCrud
 from skylark.util import SkylarkUtil
 
-class SkylarkScraper:
+class SkylarkScraperDb:
     def __init__(self, db_url: str, args: Namespace, logger: Logger):
         self.db_url = db_url
         self.args = args
@@ -346,7 +346,7 @@ class SkylarkScraper:
                 "race_class":data_class
             }
 
-            db_crud.insert_race_info(dataset_info)
+            db_crud.upsert_race_info(dataset_info)
 
             race_result = dom("html body div#page div#contents_liquid table tr")
             for result_row in race_result[1:]:
@@ -535,11 +535,11 @@ class SkylarkScraper:
                 })
 
             race_result = None
-            db_crud.insert_horses(dataset_horse)
-            db_crud.insert_jockeys(dataset_jockey)
-            db_crud.insert_trainers(dataset_trainer)
-            db_crud.insert_owners(dataset_owner)
-            db_crud.insert_race_results(dataset_result)
+            db_crud.upsert_horses(dataset_horse)
+            db_crud.upsert_jockeys(dataset_jockey)
+            db_crud.upsert_trainers(dataset_trainer)
+            db_crud.upsert_owners(dataset_owner)
+            db_crud.upsert_race_results(dataset_result)
 
             pay_block = dom("html body div#page div#contents dl.pay_block tr")
             for pay_result in pay_block:
@@ -563,6 +563,6 @@ class SkylarkScraper:
                     idx = idx + 1
 
             pay_block = None
-            db_crud.insert_payoffs(dataset_payoff)
+            db_crud.upsert_payoffs(dataset_payoff)
         except Exception as ex:
             self.logger.error(ex)

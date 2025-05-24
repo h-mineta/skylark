@@ -77,7 +77,7 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def insert_horses(self, dataset_list: list):
+    def upsert_horses(self, dataset_list: list):
         with self.session() as session:
             try:
                 for dataset in dataset_list:
@@ -108,7 +108,7 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def insert_jockeys(self, dataset_list: list) -> None:
+    def upsert_jockeys(self, dataset_list: list) -> None:
         with self.session() as session:
             try:
                 for dataset in dataset_list:
@@ -139,7 +139,7 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def insert_trainers(self, dataset_list: list) -> None:
+    def upsert_trainers(self, dataset_list: list) -> None:
         with self.session() as session:
             try:
                 for dataset in dataset_list:
@@ -170,7 +170,7 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def insert_owners(self, dataset_list: list) -> None:
+    def upsert_owners(self, dataset_list: list) -> None:
         with self.session() as session:
             try:
                 for dataset in dataset_list:
@@ -190,7 +190,7 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def insert_race_info(self, dataset: dict) -> None:
+    def upsert_race_info(self, dataset: dict) -> None:
         with self.session() as session:
             try:
                 race_info = RaceInfo(**dataset)
@@ -216,12 +216,12 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def insert_race_results(self, dataset_list: list):
+    def upsert_race_results(self, dataset_list: list):
         with self.session() as session:
             try:
                 for dataset in dataset_list:
-                    race_info = RaceResult(**dataset)
-                    session.merge(race_info)
+                    race_result = RaceResult(**dataset)
+                    session.merge(race_result)
                 session.commit()
             except Exception as ex:
                 session.rollback()
@@ -246,7 +246,7 @@ class SkylarkCrud:
                 print(ex)
         return None
 
-    def insert_payoffs(self, dataset_list: list) -> None:
+    def upsert_payoffs(self, dataset_list: list) -> None:
         with self.session() as session:
             try:
                 for dataset in dataset_list:

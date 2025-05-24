@@ -14,7 +14,7 @@ import multiprocessing
 
 from dotenv import load_dotenv
 from tqdm import tqdm
-from skylark import crud, scraper,feature
+from skylark import crud, feature, scraper_db
 
 load_dotenv()
 
@@ -143,14 +143,14 @@ def main(args: argparse.Namespace, logger: logging.Logger, sqlalchemy_db_url: st
         db_crud.create_tables()
 
         if args.update_race_list == True:
-            instance = scraper.SkylarkScraper(sqlalchemy_db_url, args = args, logger = logger)
+            instance = scraper_db.SkylarkScraperDb(sqlalchemy_db_url, args = args, logger = logger)
             if args.update_race_list == True:
                 logger.info("make race URL list")
                 instance.make_race_url_list(period = args.period_of_months)
                 instance.export_race_url_list()
 
         if args.scraping == True:
-            instance = scraper.SkylarkScraper(sqlalchemy_db_url, args = args, logger = logger)
+            instance = scraper_db.SkylarkScraperDb(sqlalchemy_db_url, args = args, logger = logger)
             if len(args.race_id) > 0:
                 instance.set_race_url_list(args.race_id)
             else:
