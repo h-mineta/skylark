@@ -101,8 +101,8 @@ class Payoff(Base):
 
 class Feature(Base):
     __tablename__ = 'feature_tbl'
-    race_id = Column(BigInteger, ForeignKey('race_info_tbl.id'), primary_key=True)
     horse_id = Column(BigInteger, ForeignKey('horse_tbl.horse_id'), primary_key=True)
+    race_id = Column(BigInteger, ForeignKey('race_info_tbl.id'), primary_key=True)
     jockey_id = Column(BigInteger, ForeignKey('jockey_tbl.jockey_id'), nullable=False)
     trainer_id = Column(BigInteger, ForeignKey('trainer_tbl.trainer_id'), nullable=False)
     calculation_result_json = Column(JSON, nullable=True)

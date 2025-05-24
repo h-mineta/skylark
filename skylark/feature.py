@@ -75,8 +75,8 @@ class SkylarkFeature():
 
         db_crud.insert_features([
             {
-                "race_id": race_id,
                 "horse_id": horse_id,
+                "race_id": race_id,
                 "jockey_id": jockey_id,
                 "trainer_id": trainer_id,
                 "calculation_result_json": json.dumps(calculation_result, ensure_ascii=False, sort_keys=True),
