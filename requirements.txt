@@ -1,7 +1,9 @@
 PyMySQL
 httpx[http2]
+playwright
 pyquery
 python-dotenv
 sqlalchemy
+streamlit
 tqdm
 zstandard
