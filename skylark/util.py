@@ -38,4 +38,4 @@ class SkylarkUtil:
                 return count
             count += 1
 
-        return None
+        return count  # 未分類は最後の値を返す
