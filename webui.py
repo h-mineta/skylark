@@ -43,7 +43,7 @@ db_config: dict = {
 DATABASE_URL: str = "{protocol:s}://{username:s}:{password:s}@{hostname:s}:{port:d}/{dbname:s}?charset={charset:s}".\
     format(**db_config)
 
-def fetch_race_dates() -> list:
+def fetch_race_dates(today) -> list:
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
         page = browser.new_page()
@@ -54,7 +54,11 @@ def fetch_race_dates() -> list:
             date_text = btn.inner_text().strip()
             href = btn.get_attribute("href")
             if date_text and href:
-                date_buttons.append({"text": date_text, "href": href})
+                kaisai_date: datetime.date | None = extract_kaisai_date_from_url(href)
+                if kaisai_date and kaisai_date < today:
+                    # 開催日が今日以降のもののみを対象とする
+                    continue
+                date_buttons.append({"text": date_text, "href": href, "kaisai_date": kaisai_date})
         browser.close()
         return date_buttons
 
@@ -203,7 +207,7 @@ def main():
     st.header("開催日を選択")
     if "race_dates" not in st.session_state:
         with st.spinner("開催日を取得中..."):
-            st.session_state["race_dates"] = fetch_race_dates()
+            st.session_state["race_dates"] = fetch_race_dates(datetime.date.today())
     race_dates = st.session_state["race_dates"]
     date_options = [d["text"] for d in race_dates]
     date_idx = st.selectbox("開催日", range(len(date_options)), format_func=lambda i: date_options[i])
@@ -211,7 +215,7 @@ def main():
     # レース一覧
     if date_idx is not None:
         selected_date = race_dates[date_idx]
-        kaisai_date: datetime.date | None = extract_kaisai_date_from_url(selected_date["href"])
+        kaisai_date: datetime.date | None = selected_date["kaisai_date"]
         st.header(f"{kaisai_date} のレース一覧")
         if f"race_list_{date_idx}" not in st.session_state:
             with st.spinner("レース一覧を取得中..."):
