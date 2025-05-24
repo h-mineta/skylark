@@ -19,13 +19,13 @@ class RaceInfo(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=False)
     race_name = Column(String(256), nullable=False)
     distance = Column(Integer, nullable=False)
-    weather = Column(String(8), nullable=False)
+    weather = Column(String(8), nullable=True)
     post_time = Column(Time, nullable=False)
     race_number = Column(BigInteger, nullable=False)
     run_direction = Column(String(8))
-    track_surface = Column(String(8), nullable=False)
-    track_condition = Column(String(8), nullable=False)
-    track_condition_score = Column(Integer)
+    track_surface = Column(String(8), nullable=True)
+    track_condition = Column(String(8), nullable=True)
+    track_condition_score = Column(Integer, nullable=True)
     date = Column(Date, nullable=False)
     place_detail = Column(String(16), nullable=False)
     race_grade = Column(Integer)
@@ -34,7 +34,7 @@ class RaceInfo(Base):
     # インデックス
     __table_args__ = (
         Index('idx_race_name', 'race_name'),
-        Index('idx_date', 'date'),
+        Index('idx_date_post_time', 'date', 'post_time'),
     )
 
 class Horse(Base):
