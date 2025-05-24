@@ -57,17 +57,6 @@ class SkylarkCrud:
         except Exception as ex:
             self.logger.error(f"{ex}")
 
-    def insert_horses(self, dataset_list: list):
-        with self.session() as session:
-            try:
-                for dataset in dataset_list:
-                    horse = Horse(**dataset)
-                    session.merge(horse)
-                session.commit()
-            except Exception as ex:
-                session.rollback()
-                raise ex
-
     def get_horse(self, horse_id) -> Horse|None:
         with self.session() as session:
             try:
@@ -87,6 +76,17 @@ class SkylarkCrud:
             except Exception as ex:
                 self.logger.error(ex)
         return None
+
+    def insert_horses(self, dataset_list: list):
+        with self.session() as session:
+            try:
+                for dataset in dataset_list:
+                    horse = Horse(**dataset)
+                    session.merge(horse)
+                session.commit()
+            except Exception as ex:
+                session.rollback()
+                raise ex
 
     def get_jockey(self, jockey_id) -> Jockey|None:
         with self.session() as session:
@@ -119,17 +119,6 @@ class SkylarkCrud:
                 session.rollback()
                 raise ex
 
-    def insert_trainers(self, dataset_list: list) -> None:
-        with self.session() as session:
-            try:
-                for dataset in dataset_list:
-                    trainer = Trainer(**dataset)
-                    session.merge(trainer)
-                session.commit()
-            except Exception as ex:
-                session.rollback()
-                raise ex
-
     def get_trainer(self, trainer_id) -> Trainer|None:
         with self.session() as session:
             try:
@@ -150,12 +139,12 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def insert_owners(self, dataset_list: list) -> None:
+    def insert_trainers(self, dataset_list: list) -> None:
         with self.session() as session:
             try:
                 for dataset in dataset_list:
-                    owner = Owner(**dataset)
-                    session.merge(owner)
+                    trainer = Trainer(**dataset)
+                    session.merge(trainer)
                 session.commit()
             except Exception as ex:
                 session.rollback()
@@ -181,11 +170,12 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def insert_race_info(self, dataset: dict) -> None:
+    def insert_owners(self, dataset_list: list) -> None:
         with self.session() as session:
             try:
-                race_info = RaceInfo(**dataset)
-                session.merge(race_info)
+                for dataset in dataset_list:
+                    owner = Owner(**dataset)
+                    session.merge(owner)
                 session.commit()
             except Exception as ex:
                 session.rollback()
@@ -200,11 +190,20 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def get_race_info_count(self) -> int|None:
+    def insert_race_info(self, dataset: dict) -> None:
         with self.session() as session:
             try:
-                count = session.query(RaceInfo).count()
-                return count
+                race_info = RaceInfo(**dataset)
+                session.merge(race_info)
+                session.commit()
+            except Exception as ex:
+                session.rollback()
+                raise ex
+
+    def get_race_results(self) -> list[RaceResult] | None:
+        with self.session() as session:
+            try:
+                return session.query(RaceResult).order_by(RaceResult.race_id, RaceResult.horse_number).all()
             except Exception as ex:
                 self.logger.error(ex)
         return None
@@ -217,14 +216,6 @@ class SkylarkCrud:
                 self.logger.error(ex)
         return None
 
-    def get_race_result_list(self) -> list[RaceResult] | None:
-        with self.session() as session:
-            try:
-                return session.query(RaceResult).order_by(RaceResult.race_id, RaceResult.horse_number).all()
-            except Exception as ex:
-                self.logger.error(ex)
-        return None
-
     def insert_race_results(self, dataset_list: list):
         with self.session() as session:
             try:
@@ -232,39 +223,6 @@ class SkylarkCrud:
                     race_info = RaceResult(**dataset)
                     session.merge(race_info)
                 session.commit()
-            except Exception as ex:
-                session.rollback()
-                raise ex
-
-    def insert_payoffs(self, dataset_list: list) -> None:
-        with self.session() as session:
-            try:
-                for dataset in dataset_list:
-                    payoff = Payoff(**dataset)
-                    session.merge(payoff)
-                session.commit()
-            except Exception as ex:
-                session.rollback()
-                raise ex
-
-    def insert_features(self, dataset_list: list) -> None:
-        with self.session() as session:
-            try:
-                for dataset in dataset_list:
-                    feature = Feature(**dataset)
-                    session.merge(feature)
-                session.commit()
-            except Exception as ex:
-                session.rollback()
-                raise ex
-
-    def update_horse(self, horse_id, name) -> None:
-        with self.session() as session:
-            try:
-                horse = session.query(Horse).filter_by(id=horse_id).first()
-                if horse:
-                    horse.name = name
-                    session.commit()
             except Exception as ex:
                 session.rollback()
                 raise ex
@@ -287,6 +245,28 @@ class SkylarkCrud:
             except Exception as ex:
                 print(ex)
         return None
+
+    def insert_payoffs(self, dataset_list: list) -> None:
+        with self.session() as session:
+            try:
+                for dataset in dataset_list:
+                    payoff = Payoff(**dataset)
+                    session.merge(payoff)
+                session.commit()
+            except Exception as ex:
+                session.rollback()
+                raise ex
+
+    def insert_features(self, dataset_list: list) -> None:
+        with self.session() as session:
+            try:
+                for dataset in dataset_list:
+                    feature = Feature(**dataset)
+                    session.merge(feature)
+                session.commit()
+            except Exception as ex:
+                session.rollback()
+                raise ex
 
     def get_speed_figure_last(self, horse_id: int, date) -> float|None:
         assert horse_id > 0

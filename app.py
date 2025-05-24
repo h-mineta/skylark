@@ -161,7 +161,7 @@ def main(args: argparse.Namespace, logger: logging.Logger, sqlalchemy_db_url: st
             logger.info("End download race data")
 
         if args.feature == True or args.rebuild_feature == True:
-            race_result_list = db_crud.get_race_result_list()
+            race_result_list = db_crud.get_race_results()
             if not race_result_list:
                 logger.warning("Failed to retrieve race results.")
                 return
