@@ -11,7 +11,7 @@ FLUSH PRIVILEGES;
 
 ```bash
 sudo dnf install -y chromium-headless at-spi2-atk
-pip3 install -r requirements.txt
+pip3.12 install -U -r requirements.txt
 playwright install chromium-headless-shell
 ./app.py -U -S -F
 streamlit run webui.py
