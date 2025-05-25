@@ -13,6 +13,7 @@ from playwright.sync_api import sync_playwright
 import datetime
 import re
 import streamlit as st
+from typing import List, Dict
 
 from skylark.crud import SkylarkCrud
 from skylark.util import SkylarkUtil
@@ -47,7 +48,7 @@ def fetch_race_dates(today) -> list:
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
         page = browser.new_page()
-        page.goto("https://race.netkeiba.com/top/race_list.html")
+        page.goto("https://race.netkeiba.com/top/race_list.html", wait_until="domcontentloaded")
         page.wait_for_selector("ul#date_list_sub", timeout=10000)
         date_buttons = []
         for btn in page.query_selector_all("ul#date_list_sub a"):
@@ -70,7 +71,7 @@ def fetch_race_list_for_date(link: str) -> list:
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
         page = browser.new_page()
-        page.goto(url)
+        page.goto(url, wait_until="domcontentloaded")
         page.wait_for_selector("dl.RaceList_DataList", timeout=10000)
         race_list = []
         for dl in page.query_selector_all("dl.RaceList_DataList"):
@@ -97,7 +98,7 @@ def fetch_race_list_for_date(link: str) -> list:
         browser.close()
         return race_list
 
-def fetch_race_information(link: str) -> dict:
+def fetch_race_information(link: str) -> tuple[dict, dict]:
     if link.startswith("http"):
         url = link
     else:
@@ -108,8 +109,8 @@ def fetch_race_information(link: str) -> dict:
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
         page = browser.new_page()
-        page.goto(url)
-        page.wait_for_selector("#page > div.RaceColumn01 > div > div.RaceMainColumn > div.RaceList_NameBox > div.RaceList_Item02 > h1", timeout=10000)
+        page.goto(url, wait_until="domcontentloaded")
+        page.wait_for_selector("table.Shutuba_Table tbody tr.HorseList", timeout=20000)
 
         race_name = page.query_selector("#page > div.RaceColumn01 > div > div.RaceMainColumn > div.RaceList_NameBox > div.RaceList_Item02 > h1")
 
@@ -176,7 +177,82 @@ def fetch_race_information(link: str) -> dict:
             "race_class": " ".join(race_data2_list[3:5]),
         }
 
-        return race_info_dict
+        horses_dict = {}
+        horse_trs = page.query_selector_all("table.Shutuba_Table tbody tr.HorseList")
+
+        for horse in horse_trs:
+
+            horse_number_elem = horse.query_selector("td.Umaban1")
+            horse_number = int(horse_number_elem.inner_text().strip()) if horse_number_elem else None
+
+            waku_number_elem = horse.query_selector("td.Waku1")
+            waku_number = int(waku_number_elem.inner_text().strip()) if waku_number_elem else None
+
+            horse_name_elem = horse.query_selector("span.HorseName > a")
+            horse_id = None
+            horse_db_url = horse_name_elem.get_attribute("href") if horse_name_elem else None
+            matches = re.search(r"/(\d+)$", horse_db_url) if horse_db_url else None
+            if matches:
+                horse_id = int(matches.group(1))
+            horse_name = horse_name_elem.inner_text().strip() if horse_name_elem else None
+
+            jockey_name_elem = horse.query_selector("td.Jockey > a")
+            jockey_id = None
+            jockey_db_url = jockey_name_elem.get_attribute("href") if jockey_name_elem else None
+            matches = re.search(r"/(\d+)/$", jockey_db_url) if jockey_db_url else None
+            if matches:
+                jockey_id = int(matches.group(1))
+            jockey_name = jockey_name_elem.inner_text().strip() if jockey_name_elem else None
+
+            barei_elem = horse.query_selector("td.Waku1")
+            barei = barei_elem.inner_text().strip() if barei_elem else None
+
+            barei_elem = horse.query_selector("td.Waku1")
+            barei = barei_elem.inner_text().strip() if barei_elem else None
+
+            basis_weight_elem = horse.query_selector("td.Txt_C") # 斤量 
+            basis_weight = float(basis_weight_elem.inner_text().strip()) if basis_weight_elem else None
+
+            trainer_name_elem = horse.query_selector("td.Trainer > a")
+            trainer_id = None
+            trainer_db_url = trainer_name_elem.get_attribute("href") if trainer_name_elem else None
+            matches = re.search(r"/(\d+)/$", trainer_db_url) if trainer_db_url else None
+            if matches:
+                trainer_id = int(matches.group(1))
+            trainer_name = trainer_name_elem.inner_text().strip() if trainer_name_elem else None
+            
+            horse_weight_elem = horse.query_selector("td.Txt_C")
+            horse_weight: int = 999
+            horse_weight_diff: int = 0
+            matches = re.match(r"(\d+)\(([+-]?\d+)\)", horse_weight_elem.inner_text()) if horse_weight_elem else None
+            if matches:
+                horse_weight = int(matches.group(1))
+                horse_weight_diff = int(matches.group(2))
+
+            odds_elem = horse.query_selector("td.Txt_R > span")
+            odds = float(odds_elem.inner_text().strip()) if odds_elem else None
+
+            popularity_elem = horse.query_selector("td.Popular > span")
+            popularity = float(popularity_elem.inner_text().strip()) if popularity_elem else None
+
+            horses_dict[horse_number] = {
+                "horse_id": horse_id, # 馬ID
+                "horse_number": horse_number, # 馬番
+                "waku_number": waku_number, # 枠番
+                "horse_name": horse_name, # 馬名
+                "barei": barei, # 馬齢
+                "basis_weight": basis_weight, # 斤量
+                "jockey_id": jockey_id, # 騎手ID
+                "jockey_name": jockey_name, # 騎手名
+                "trainer_id": trainer_id, # 調教師ID
+                "trainer_name": trainer_name, # 調教師名
+                "odds": odds, # オッズ
+                "popularity": popularity, # 人気
+                "horse_weight": horse_weight, # 馬体重
+                "horse_weight_diff": horse_weight_diff, # 馬体重増減
+            }
+
+        return race_info_dict, horses_dict
 
 def extract_race_id_from_url(url: str) -> int|None:
     """
@@ -230,7 +306,7 @@ def main():
             if f"race_information_{date_idx}_{race_idx}" not in st.session_state:
                 with st.spinner("レース情報を取得中..."):
                     st.session_state[f"race_information_{date_idx}_{race_idx}"] = fetch_race_information(selected_race["href"])
-            race_info_dict = st.session_state[f"race_information_{date_idx}_{race_idx}"]
+            race_info_dict, horses_dict = st.session_state[f"race_information_{date_idx}_{race_idx}"]
             if race_info_dict:
                 race_info_dict["date"] = kaisai_date
                 race_info_dict["place_detail"] = selected_race["course_name"]
@@ -261,14 +337,15 @@ def main():
                 if button_key not in st.session_state:
                     st.session_state[button_key] = False
 
-                def save_raceinfo():
+                def save_race_info():
                     db_crud: SkylarkCrud = SkylarkCrud(DATABASE_URL, logger=LOGGER)
                     db_crud.upsert_race_info(race_info_dict)
-                    st.session_state[button_key] = True
+                    print(horses_dict)
+                    #st.session_state[button_key] = True
 
                 st.button(
                     "レース情報をDB保管",
-                    on_click=save_raceinfo,
+                    on_click=save_race_info,
                     disabled=st.session_state[button_key]
                 )
 
